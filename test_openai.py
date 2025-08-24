@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
-print("Chave da API:", os.getenv("OPENAI_API_KEY"))
 
 # Acessando a chave da API
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -15,13 +14,16 @@ else:
     # Configure a chave no cliente OpenAI
     openai.api_key = openai_api_key
 
-    # Teste com uma chamada simples à API
-    response = openai.Completion.create(
+    # Usando a nova interface da API
+    response = openai.chat_completions.create(
         model="gpt-4o-mini",
-        prompt="Hello, world!",
-        max_tokens=100
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello, world!"}
+        ]
     )
 
-    print(response.choices[0].text)
+    print(response['choices'][0]['message']['content'])
+
 
 

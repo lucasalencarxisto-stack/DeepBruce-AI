@@ -102,6 +102,62 @@ flask run
 
 ---
 
+基于 Flask 和 SSE 的 OpenAI 聊天机器人
+该项目是一个基于 Flask 的简单聊天机器人应用，使用 OpenAI 的 GPT 模型。它支持 Server-Sent Events (SSE)，用于实时响应和会话管理。
+
+如何配置 .env
+1. 在项目的根目录创建一个 .env 文件。
+2. 将以下变量添加到 .env 文件中：
+OPENAI_API_KEY=你的_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_SUMMARY_MODEL=gpt-4o-mini
+OPENAI_TEMPERATURE=0.7
+OPENAI_MAX_TOKENS=800
+
+如何本地运行
+1. 安装依赖：
+pip install -r requirements.txt
+2. 确保已激活虚拟环境：
+.\venv\Scripts\activate  # 在 Windows 上
+source venv/bin/activate  # 在 Linux/macOS 上
+3. 运行 Flask 应用：
+python app.py
+4. 通过浏览器访问 http://127.0.0.1:5000/。
+
+如何在生产环境中运行
+1. 在 app.py 中设置 debug=False。
+2. 使用 WSGI 服务器如 gunicorn 或 uvicorn：
+gunicorn app:app
+
+主要路由和功能
+/status: 健康检查路由，返回 {"status": "ok"}。
+
+/: 主聊天界面，以 HTML 渲染。
+
+/chat: 接收用户消息并将其存储在会话历史中的 POST 路由。
+
+/stream: 使用 SSE 实时流式传输聊天机器人响应的 GET 路由。
+
+/stream2: 使用单一端点实时流式传输聊天机器人响应的 POST 路由。
+
+## 示例请求
+1. 健康检查**
+```bash
+curl http://127.0.0.1:5000/status
+期望的响应:
+{
+  "status": "ok"
+}
+2. 发送消息到聊天
+curl -X POST http://127.0.0.1:5000/chat -H "Content-Type: application/json" -d '{"message": "你好，聊天机器人！"}'
+3. 使用 Stream 获取实时响应
+curl http://127.0.0.1:5000/stream
+4. 使用单一端点的 Stream
+curl -X POST http://127.0.0.1:5000/stream2 -H "Content-Type: application/json" -d '{"message": "讲个笑话"}'
+
+
+---
+
 ## 👨‍💻 作者
 
 Lucas Alencar  

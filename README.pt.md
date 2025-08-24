@@ -103,6 +103,72 @@ Abra seu navegador em: http://127.0.0.1:5000
 
 ---
 
+Chatbot Flask com SSE e OpenAI
+Este projeto é uma aplicação simples baseada no Flask, utilizando o modelo GPT da OpenAI. Ele suporta Server-Sent Events (SSE) para respostas em tempo real e gerenciamento de sessões.
+
+Como Configurar o .env
+1. Crie um arquivo .env no diretório raiz do projeto.
+2. Adicione as seguintes variáveis no arquivo .env:
+OPENAI_API_KEY=sua_chave_api_openai
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_SUMMARY_MODEL=gpt-4o-mini
+OPENAI_TEMPERATURE=0.7
+OPENAI_MAX_TOKENS=800
+
+Como Rodar Localmente
+1. Instale as dependências:
+pip install -r requirements.txt
+2. Certifique-se de que o ambiente virtual esteja ativado:source venv/bin/activate  # No Linux/macOS
+Rode o aplicativo Flask:
+.\venv\Scripts\activate  # No Windows
+source venv/bin/activate  # No Linux/macOS
+3. Rode o aplicativo Flask:
+python app.py
+4. Acesse o aplicativo em http://127.0.0.1:5000/ no seu navegador.
+
+Como Rodar em Produção
+1. Defina debug=False em app.py.
+2. Utilize um servidor WSGI como o gunicorn ou uvicorn:
+gunicorn app:app
+
+Principais Rotas e Funcionalidades
+/status: Rota de verificação de saúde que retorna {"status": "ok"}.
+
+/: Interface principal de chat renderizada em HTML.
+
+/chat: Rota POST que recebe uma mensagem do usuário e a armazena no histórico da sessão.
+
+/stream: Rota GET que transmite as respostas do chatbot em tempo real usando SSE.
+
+/stream2: Rota POST que transmite as respostas do chatbot em tempo real usando um único endpoint.
+
+Exemplos de Requisições
+1. Verificação de Saúde
+curl http://127.0.0.1:5000/status
+Resposta esperada:
+{
+  "status": "ok"
+}
+2. Enviar Mensagem para o Chat
+curl -X POST http://127.0.0.1:5000/chat -H "Content-Type: application/json" -d '{"message": "Olá, chatbot!"}'
+3. Resposta via Stream
+curl http://127.0.0.1:5000/stream
+4. Endpoint Único de Stream
+curl -X POST http://127.0.0.1:5000/stream2 -H "Content-Type: application/json" -d '{"message": "Me conte uma piada"}'
+
+FAQ e Resolução de Problemas
+P: Como configuro corretamente o arquivo .env?
+R: Certifique-se de adicionar sua chave API da OpenAI e outras variáveis, como OPENAI_MODEL e OPENAI_TEMPERATURE, ao arquivo .env conforme mostrado acima.
+
+P: Como posso rodar o Flask em produção?
+R: Use um servidor WSGI como gunicorn para produção e defina debug=False em app.py.
+
+Próximos Passos:
+Contribuindo: Se quiser contribuir, sinta-se à vontade para fazer um fork e criar uma pull request!
+
+Resolução de Problemas: Verifique a seção de FAQ acima se encontrar algum problema.
+---
+
 ## 👨‍💻 Autor
 
 Lucas Alencar  

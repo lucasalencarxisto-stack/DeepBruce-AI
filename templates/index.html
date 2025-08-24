@@ -1,153 +1,174 @@
+<!-- HMC-UI v2 -->
 <!doctype html>
-<html lang="pt-br">
-  <head>
-    <meta charset="utf-8" />
-    <title>OpenAI Chat (SSE)</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
-  </head>
-  <body>
-    <header class="header">
-      <div class="logo">🤖</div>
-      <div class="title">OpenAI Chat – SSE</div>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Human Mind Compiler — Chat</title>
+  <style>
+    :root { --bg:#0f1226; --panel:#15183a; --bubble-user:#2962ff; --bubble-bot:#21264d; --accent:#7c4dff;
+            --text:#e6e8ff; --muted:#9aa0c3; --danger:#ff5370; --ok:#00c853; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:linear-gradient(135deg,#0f1226 0%,#1a1f4a 100%); color:var(--text); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    .wrap { max-width:900px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column; }
+    header { padding:18px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #242857; backdrop-filter:blur(6px); position:sticky; top:0; background:rgba(10,12,28,.6);}
+    header .dot { width:12px; height:12px; border-radius:50%; background:var(--ok); box-shadow:0 0 12px var(--ok); }
+    header h1 { font-size:18px; margin:0; letter-spacing:.3px; }
+    header span { color:var(--muted); font-size:13px; }
+    .chat { flex:1; padding:20px 16px 8px; display:flex; flex-direction:column; gap:14px; overflow:auto; }
+    .msg { display:flex; }
+    .msg.user { justify-content:flex-end; }
+    .msg.assistant { justify-content:flex-start; }
+    .msg.error { justify-content:center; }
+    .bubble { max-width:78%; padding:12px 14px; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.25); white-space:pre-wrap; word-wrap:break-word; }
+    .user .bubble { background:var(--bubble-user); color:#fff; border-top-right-radius:6px; }
+    .assistant .bubble { background:var(--bubble-bot); color:var(--text); border-top-left-radius:6px; }
+    .error .bubble { background:#3a1e28; color:#ffcdd2; border:1px solid #c62828; }
+    .typing { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; padding:0 4px 8px; }
+    .blink { width:6px; height:6px; border-radius:50%; background:var(--muted); animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+    .composer { position:sticky; bottom:0; padding:12px; background:linear-gradient(0deg, rgba(10,12,28,.85) 0%, rgba(10,12,28,.6) 100%); border-top:1px solid #242857; }
+    .bar { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:end; background:var(--panel); border:1px solid #242857; border-radius:14px; padding:10px; }
+    textarea { width:100%; resize:none; border:0; outline:0; background:transparent; color:var(--text); max-height:180px; height:50px; font:16px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    button { height:44px; padding:0 14px; border:1px solid #2a2f63; border-radius:12px; background:#1e2350; color:#e6e8ff; cursor:pointer; }
+    button:hover { filter:brightness(1.06); }
+    .send { background:linear-gradient(135deg,#5f5fff,#7c4dff); border-color:transparent; }
+    .mic.listening { border-color:#00e5ff; box-shadow:0 0 0 2px rgba(0,229,255,.2) inset; }
+    .hint { margin-top:8px; color:var(--muted); font-size:12px; }
+    code.kbd { background:#11142c; padding:2px 6px; border-radius:6px; border:1px solid #232656; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="dot"></div>
+      <h1>Human Mind Compiler — Chat</h1>
+      <span>Enter envia • Shift+Enter quebra linha • 🎙️ reconhecimento de voz</span>
     </header>
 
-    <main class="container">
-      <div class="controls">
-        <select id="flow">
-          <option value="two-step">Flow 1: POST /chat + GET /stream</option>
-          <option value="single">Flow 2: POST /stream2 (single endpoint)</option>
-        </select>
-        <button id="reset">Reset</button>
+    <main id="chat" class="chat" aria-live="polite" aria-label="Mensagens do chat"></main>
+    <div class="typing" id="typing" style="display:none;">
+      <div class="blink"></div><div class="blink"></div><div class="blink"></div>
+      <span>digitando…</span>
+    </div>
+
+    <div class="composer">
+      <div class="bar">
+        <textarea id="input" placeholder="Digite sua mensagem..."></textarea>
+        <button id="micBtn" class="mic" title="Falar (Web Speech API)">🎙️</button>
+        <button id="sendBtn" class="send">Enviar</button>
       </div>
+      <div class="hint">Dica: pressione <code class="kbd">Enter</code> para enviar e <code class="kbd">Shift</code>+<code class="kbd">Enter</code> para nova linha.</div>
+    </div>
+  </div>
 
-      <div id="chat" class="chat"></div>
+  <script>
+    // ---- Helpers ----
+    const chatEl  = document.getElementById('chat');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const typingEl= document.getElementById('typing');
+    const micBtn  = document.getElementById('micBtn');
+    const API_CHAT = '/chat';
 
-      <form id="form" class="composer">
-        <textarea id="msg" rows="3" placeholder="Digite sua mensagem / Type your message..."></textarea>
-        <button id="send" class="primary" type="submit">Enviar</button>
-      </form>
-    </main>
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function appendMessage(role, text){
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = escapeHtml(text).replace(/\n/g,'<br>');
+      div.appendChild(bubble);
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+    function setTyping(on){ typingEl.style.display = on ? 'flex' : 'none'; }
 
-    <script>
-      /*
-      PT-BR: Renderizador Markdown leve: **negrito**, _itálico_, `inline code`, ```blocos```.
-      EN:    Lightweight Markdown: **bold**, _italic_, `inline code`, ```blocks```.
-      ES:    Markdown ligero: **negrita**, _cursiva_, `código`, ```bloques```.
-      中文:   轻量 Markdown：**粗体**、_斜体_、`行内代码`、```代码块```。
-      */
-      function md(s) {
-        s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        s = s.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${code.trim()}</code></pre>`);
-        s = s.replace(/`([^`]+)`/g, (m, code) => `<code>${code}</code>`);
-        s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        s = s.replace(/_([^_]+)_/g, "<em>$1</em>");
-        s = s.replace(/\n/g, "<br>");
-        return s;
-      }
+    // ---- PATCH: resposta JSON robusta (mostra corpo bruto se não for JSON) ----
+    async function sendMessage(){
+      const text = inputEl.value.trim();
+      if (!text) return;
+      appendMessage('user', text);
+      inputEl.value = '';
+      setTyping(true);
 
-      const chat = document.getElementById("chat");
-      const form = document.getElementById("form");
-      const msgInput = document.getElementById("msg");
-      const sendBtn = document.getElementById("send");
-      const resetBtn = document.getElementById("reset");
-      const flowSel = document.getElementById("flow");
-
-      let es = null; // PT-BR: EventSource ativo (flow 1) / EN: active EventSource
-
-      function append(role, text) {
-        const div = document.createElement("div");
-        div.className = `msg ${role}`;
-        div.innerHTML = `<div class="role">${role}</div><div class="bubble">${md(text)}</div>`;
-        chat.appendChild(div);
-        chat.scrollTop = chat.scrollHeight;
-      }
-
-      async function sendTwoStep(message) {
-        sendBtn.disabled = true;
-        append("user", message);
-
-        const resp = await fetch("/chat", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({message}),
+      try {
+        const res = await fetch(API_CHAT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
         });
-        if (!resp.ok) { append("error", "Falha ao enviar /chat"); sendBtn.disabled = false; return; }
 
-        es = new EventSource("/stream");
-        const assistantDiv = document.createElement("div");
-        assistantDiv.className = "msg assistant";
-        assistantDiv.innerHTML = `<div class="role">assistant</div><div class="bubble"></div>`;
-        chat.appendChild(assistantDiv);
-        const bubble = assistantDiv.querySelector(".bubble");
+        const raw = await res.text(); // pode ser JSON ou HTML de erro
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error('Resposta inválida do servidor: ' + raw.slice(0, 400));
+        }
 
-        es.addEventListener("ping", () => {});
-        es.addEventListener("done", () => { append("system", "[END]"); es.close(); es = null; sendBtn.disabled = false; });
-        es.addEventListener("error", () => { append("error", "[ERROR]"); es && es.close(); es = null; sendBtn.disabled = false; });
-        es.onmessage = (ev) => { if (ev.data) bubble.innerHTML += md(ev.data); chat.scrollTop = chat.scrollHeight; };
+        if (!res.ok || !data.success) {
+          const msg = (data && data.error) ? data.error : (res.status + ' ' + res.statusText);
+          throw new Error(msg);
+        }
+
+        appendMessage('assistant', data.reply || '');
+      } catch (err) {
+        appendMessage('error', 'Falha ao enviar /chat: ' + err.message);
+      } finally {
+        setTyping(false);
+        inputEl.focus();
       }
+    }
 
-      async function sendSingle(message) {
-        sendBtn.disabled = true;
-        append("user", message);
-
-        const resp = await fetch("/stream2", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({message}),
-        });
-        if (!resp.ok) { append("error", "Falha ao abrir /stream2"); sendBtn.disabled = false; return; }
-
-        const assistantDiv = document.createElement("div");
-        assistantDiv.className = "msg assistant";
-        assistantDiv.innerHTML = `<div class="role">assistant</div><div class="bubble"></div>`;
-        chat.appendChild(assistantDiv);
-        const bubble = assistantDiv.querySelector(".bubble");
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        (async function read() {
-          try {
-            const { value, done } = await reader.read();
-            if (done) { sendBtn.disabled = false; return; }
-            buffer += decoder.decode(value, { stream: true });
-            const parts = buffer.split("\n\n"); buffer = parts.pop();
-            for (const part of parts) {
-              const lines = part.split("\n");
-              let event = null, data = [];
-              for (const line of lines) {
-                if (line.startsWith("event:")) event = line.slice(6).trim();
-                else if (line.startsWith("data:")) data.push(line.slice(5).trim());
-              }
-              const payload = data.join("\n");
-              if (event === "ping") continue;
-              if (event === "error") append("error", payload || "[ERROR]");
-              else if (event === "done") append("system", "[END]");
-              else bubble.innerHTML += md(payload);
-            }
-            read();
-          } catch (e) {
-            append("error", "Stream interrompido: " + e);
-            sendBtn.disabled = false;
-          }
-        })();
-      }
-
-      form.addEventListener("submit", (e) => {
+    // Enter envia (Shift+Enter = quebra linha)
+    inputEl.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        const message = msgInput.value.trim();
-        if (!message) return;
-        msgInput.value = "";
-        if (flowSel.value === "two-step") sendTwoStep(message);
-        else sendSingle(message);
-      });
+        sendMessage();
+      }
+    });
+    sendBtn.addEventListener('click', sendMessage);
 
-      resetBtn.addEventListener("click", async () => {
-        await fetch("/reset", { method: "POST" });
-        chat.innerHTML = "";
-        append("system", "Sessão reiniciada / Session reset / Sesión reiniciada / 会话已重置");
-      });
-    </script>
-  </body>
+    // ---- Reconhecimento de voz (Web Speech API) ----
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let rec = null, listening = false;
+
+    function toggleListen(){
+      if (!SpeechRecognition) {
+        appendMessage('error','Reconhecimento de voz não suportado neste navegador.');
+        return;
+      }
+      if (!rec) {
+        rec = new SpeechRecognition();
+        rec.lang = 'pt-BR'; // ajuste: 'en-US' | 'es-ES' | 'zh-CN'
+        rec.interimResults = true;
+        rec.continuous = false;
+        rec.maxAlternatives = 1;
+
+        rec.onstart = ()=>{ listening = true; micBtn.classList.add('listening'); };
+        rec.onend   = ()=>{ listening = false; micBtn.classList.remove('listening'); };
+        rec.onerror = (e)=>{ appendMessage('error','Voz: ' + (e.error || 'erro desconhecido')); };
+
+        rec.onresult = (e)=>{
+          let finalTranscript = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) finalTranscript += t;
+          }
+          if (finalTranscript) {
+            inputEl.value = (inputEl.value + ' ' + finalTranscript).trim();
+            inputEl.focus();
+          }
+        };
+      }
+      if (!listening) rec.start(); else rec.stop();
+    }
+
+    micBtn.addEventListener('click', toggleListen);
+
+    // Mensagem inicial
+    appendMessage('assistant','Olá! Envie sua primeira mensagem. (Dica: use Enter para enviar; 🎙️ para ditar.)');
+  </script>
+</body>
 </html>

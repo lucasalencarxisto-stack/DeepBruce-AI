@@ -1,57 +1,118 @@
+/* ===== HMC-UI v2 (limpo) ===== */
 :root {
-  --bg: #0b1020;
-  --panel: #11162a;
-  --text: #eaeef8;
-  --muted: #9aa4c7;
-  --assistant: #1b2544;
-  --user: #22314d;
-  --system: #2a3759;
-  --error: #44222a;
+  --bg:#0f1226;
+  --panel:#15183a;
+  --bubble-user:#2962ff;
+  --bubble-bot:#21264d;
+  --accent:#7c4dff;
+  --text:#e6e8ff;
+  --muted:#9aa0c3;
+  --danger:#ff5370;
+  --ok:#00c853;
 }
 
+/* Base */
 * { box-sizing: border-box; }
-html, body { height: 100%; }
 body {
-  margin: 0;
-  background: radial-gradient(1200px 600px at 20% -10%, #1a2451 0, transparent 60%), var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin:0;
+  background:linear-gradient(135deg,#0f1226 0%,#1a1f4a 100%);
+  color:var(--text);
+  font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
+.wrap {
+  max-width:900px;
+  margin:0 auto;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
 }
 
-.header {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 18px; background: rgba(0,0,0,0.25); border-bottom: 1px solid #202a52;
-  position: sticky; top: 0; z-index: 10; backdrop-filter: blur(6px);
+/* Header */
+header {
+  padding:18px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border-bottom:1px solid #242857;
+  backdrop-filter:blur(6px);
+  position:sticky; top:0;
+  background:rgba(10,12,28,.6);
 }
-.logo { font-size: 20px; }
-.title { font-weight: 700; letter-spacing: 0.3px; }
-
-.container { max-width: 900px; margin: 18px auto; padding: 0 16px; }
-
-.controls { display: flex; gap: 10px; margin-bottom: 12px; }
-select, button {
-  padding: 8px 12px; border-radius: 10px; border: 1px solid #273567; background: #0f1734; color: var(--text);
+header .dot {
+  width:12px; height:12px; border-radius:50%;
+  background:var(--ok); box-shadow:0 0 12px var(--ok);
 }
-button.primary { background: #2845a7; border: 1px solid #395ad6; cursor: pointer; }
+header h1 { font-size:18px; margin:0; letter-spacing:.3px; }
+header span { color:var(--muted); font-size:13px; }
 
+/* Chat area */
 .chat {
-  height: 60vh; overflow: auto; padding: 12px;
-  background: var(--panel); border: 1px solid #26356c; border-radius: 16px;
+  flex:1;
+  padding:20px 16px 8px;
+  display:flex; flex-direction:column;
+  gap:14px; overflow:auto;
+}
+.msg { display:flex; }
+.msg.user { justify-content:flex-end; }
+.msg.assistant { justify-content:flex-start; }
+.msg.error { justify-content:center; }
+
+.bubble {
+  max-width:78%;
+  padding:12px 14px;
+  border-radius:14px;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);
+  white-space:pre-wrap; word-wrap:break-word;
+}
+.user .bubble { background:var(--bubble-user); color:#fff; border-top-right-radius:6px; }
+.assistant .bubble { background:var(--bubble-bot); color:var(--text); border-top-left-radius:6px; }
+.error .bubble { background:#3a1e28; color:#ffcdd2; border:1px solid #c62828; }
+
+/* Typing indicator */
+.typing { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; padding:0 4px 8px; }
+.blink { width:6px; height:6px; border-radius:50%; background:var(--muted); animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+
+/* Composer */
+.composer {
+  position:sticky; bottom:0; padding:12px;
+  background:linear-gradient(0deg, rgba(10,12,28,.85) 0%, rgba(10,12,28,.6) 100%);
+  border-top:1px solid #242857;
+}
+.bar {
+  display:grid; grid-template-columns:1fr auto auto;
+  gap:10px; align-items:end;
+  background:var(--panel);
+  border:1px solid #242857;
+  border-radius:14px;
+  padding:10px;
 }
 
-.msg { margin: 12px 0; display: grid; grid-template-columns: 100px 1fr; gap: 8px; }
-.msg .role { color: var(--muted); text-transform: lowercase; padding-top: 6px; }
-.msg .bubble {
-  background: #152044; border: 1px solid #2a3c7b; border-radius: 12px; padding: 10px 12px;
-  line-height: 1.5;
+/* (Escolha UMA regra para textarea)
+   Abaixo já é a versão "bonita" com borda, raio e fundo: */
+textarea {
+  width:100%;
+  height:50px; max-height:180px;
+  resize:vertical;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #2a396d;
+  background:#0f1734;
+  color:var(--text);
+  outline:0;
+  font:16px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
-.msg.user .bubble { background: var(--user); }
-.msg.assistant .bubble { background: var(--assistant); }
-.msg.system .bubble { background: var(--system); }
-.msg.error .bubble { background: var(--error); }
 
-.composer { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 12px; }
-.composer textarea {
-  width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #2a396d; background: #0f1734; color: var(--text);
-  resize: vertical;
+button {
+  height:44px; padding:0 14px;
+  border:1px solid #2a2f63; border-radius:12px;
+  background:#380836; color:#e6e8ff;
+  cursor:pointer;
 }
+button:hover { filter:brightness(1.06); }
+.send { background:linear-gradient(135deg,#5f5fff,#7c4dff); border-color:transparent; }
+.mic.listening { border-color:#00e5ff; box-shadow:0 0 0 2px rgba(0,229,255,.2) inset; }
+
+.hint { margin-top:8px; color:var(--muted); font-size:12px; }
+code.kbd { background:#11142c; padding:2px 6px; border-radius:6px; border:1px solid #232656; }
+

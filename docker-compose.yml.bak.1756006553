@@ -1,0 +1,29 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    # expõe só dentro da rede do compose (não publica na máquina)
+    ports:
+      - "11434"              # interno; acessível como http://ollama:11434 pela API
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://0.0.0.0:11434
+      - OLLAMA_ORIGINS=http://localhost http://127.0.0.1
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: oqs_step2_api
+    depends_on:
+      - ollama
+    environment:
+      - APP_ENV=production
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b   # <<< AQUI o nome CERTO do modelo que você baixou
+    ports:
+      - "127.0.0.1:9100:8000"
+    restart: unless-stopped
+
+volumes:
+  ollama_data:

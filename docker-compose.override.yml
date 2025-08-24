@@ -1,0 +1,21 @@
+services:
+  api:
+    command: ["gunicorn","app:app","-w","2","--timeout","180","--graceful-timeout","60","--bind","0.0.0.0:8000"]
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2:3b
+      OLLAMA_TIMEOUT: "150"
+      OLLAMA_NUM_CTX: "2048"
+      OLLAMA_NUM_PREDICT: "128"
+      OQS_SYSTEM_PROMPT: >-
+        Você é um assistente técnico do projeto OQS_step2 (Docker/Flask/Ollama).
+        Responda em PT-BR, de forma objetiva, com foco em comandos e diagnósticos.
+    volumes:
+      - ./app/static:/app/app/static:ro
+
+  ollama:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
