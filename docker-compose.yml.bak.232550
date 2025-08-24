@@ -1,8 +1,0 @@
-services:
-  api:
-    build: .
-    container_name: oqs_step2_api
-    ports:
-      - "9100:8000"   # host:container
-    environment:
-      - APP_ENV=production
