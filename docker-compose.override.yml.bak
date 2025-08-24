@@ -1,4 +1,0 @@
-services:
-  api:
-    ports:
-      - "9101:8000"

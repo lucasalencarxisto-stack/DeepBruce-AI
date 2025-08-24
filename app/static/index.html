@@ -1,1 +1,188 @@
-<!doctype html><meta charset="utf-8"><title>chat</title><h1>UI OK</h1>
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>portifolio-chat</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;background:#0b0b0c;color:#e6e6e6}
+    .wrap{max-width:900px;margin:0 auto;padding:18px}
+    .card{background:#121214;border:1px solid #26262a;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+    header{padding:16px 18px;border-bottom:1px solid #26262a;display:flex;gap:12px;align-items:center}
+    header h1{font-weight:650;font-size:18px;margin:0}
+    .pill{font-size:12px;opacity:.8;background:#1a1a1e;padding:4px 8px;border-radius:999px;border:1px solid #2b2b30}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+    select, input[type="number"], button{
+      background:#1a1a1e;color:#eaeaea;border:1px solid #2b2b30;border-radius:10px;
+      padding:8px 10px;font-size:14px;outline:none
+    }
+    button{cursor:pointer}
+    button.primary{background:#2b59ff;border-color:#2b59ff;color:white}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .chat{padding:12px 18px;max-height:60vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+    .msg{display:flex;gap:10px}
+    .msg .bubble{padding:12px 14px;border-radius:14px;max-width:80%}
+    .user .bubble{background:#1f2330;border:1px solid #2f3a5a}
+    .bot .bubble{background:#17181c;border:1px solid #2b2b30;white-space:pre-wrap}
+    .inputbar{display:flex;gap:8px;padding:12px 18px;border-top:1px solid #26262a}
+    textarea{
+      flex:1;min-height:44px;max-height:140px;resize:vertical;
+      background:#121214;color:#eaeaea;border:1px solid #2b2b30;border-radius:12px;padding:10px
+    }
+    .status{font-size:12px;opacity:.75;padding:0 18px 12px}
+    a.link{color:#9bb1ff;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>portifolio-chat</h1>
+        <span class="pill" id="pill-status">inicializando…</span>
+        <div class="toolbar">
+          <select id="model"></select>
+          <input type="number" id="num_predict" min="16" max="512" step="16" value="128" title="num_predict" />
+          <button id="btn-clear" type="button">Limpar</button>
+        </div>
+      </header>
+
+      <div class="chat" id="chat"></div>
+      <div class="status" id="status"></div>
+
+      <div class="inputbar">
+        <textarea id="input" placeholder="Escreva sua mensagem… (Shift+Enter para quebrar linha)"></textarea>
+        <button class="primary" id="btn-send">Enviar</button>
+      </div>
+    </div>
+    <p style="opacity:.7;margin-top:10px">
+      Backend: <code>/chat</code> (stream) • <a class="link" href="/config" target="_blank">/config</a> • <a class="link" href="/models" target="_blank">/models</a>
+    </p>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const chatEl = $('#chat');
+    const inputEl = $('#input');
+    const sendBtn = $('#btn-send');
+    const clearBtn = $('#btn-clear');
+    const modelSel = $('#model');
+    const npEl = $('#num_predict');
+    const pill = $('#pill-status');
+    const stat = $('#status');
+
+    function addMsg(role, text) {
+      const row = document.createElement('div');
+      row.className = `msg ${role}`;
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.textContent = text;
+      row.appendChild(b);
+      chatEl.appendChild(row);
+      chatEl.scrollTop = chatEl.scrollHeight;
+      return b; // devolve a bubble pra atualizações
+    }
+
+    function setStatus(text) { stat.textContent = text || ''; }
+    function setPill(text) { pill.textContent = text; }
+
+    async function loadModels() {
+      try {
+        const r = await fetch('/models');
+        const j = await r.json();
+        modelSel.innerHTML = '';
+        (j.models || []).forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.id;
+          modelSel.appendChild(opt);
+        });
+        setPill('ok');
+      } catch (e) {
+        setPill('erro');
+      }
+    }
+
+    async function send() {
+      const msg = inputEl.value.trim();
+      if (!msg) return;
+      inputEl.value = '';
+      sendBtn.disabled = true;
+
+      addMsg('user', msg);
+      const botBubble = addMsg('bot', ''); // vamos preencher enquanto streama
+
+      const model = modelSel.value || '';
+      const np = parseInt(npEl.value, 10) || 128;
+
+      // monta a requisição de streaming
+      const url = `/chat?model=${encodeURIComponent(model)}&num_predict=${np}`;
+      const body = JSON.stringify({ message: msg, stream: true });
+
+      setStatus('conectando…');
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+
+        if (!resp.ok || !resp.body) {
+          const txt = await resp.text();
+          botBubble.textContent = `[erro HTTP ${resp.status}] ${txt}`;
+          setStatus('');
+          sendBtn.disabled = false;
+          return;
+        }
+
+        setStatus('recebendo…');
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = ''; // acumulador final
+        let buf = ''; // buffer de linha
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+
+          let idx;
+          while ((idx = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, idx);
+            buf = buf.slice(idx + 1);
+
+            if (!line) continue;
+            if (line.startsWith(':')) {
+              // :preamble / :hb — apenas ignora ou atualize status se quiser
+              continue;
+            }
+            // cada linha é um pedaço de texto
+            acc += line;
+            botBubble.textContent = acc;
+            chatEl.scrollTop = chatEl.scrollHeight;
+          }
+        }
+        setStatus('');
+      } catch (e) {
+        botBubble.textContent = `[erro] ${e}`;
+        setStatus('');
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    // atalhos / eventos
+    sendBtn.addEventListener('click', send);
+    clearBtn.addEventListener('click', () => { chatEl.innerHTML = ''; setStatus(''); });
+    inputEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        send();
+      }
+    });
+
+    // boot
+    loadModels();
+  </script>
+</body>
+</html>
