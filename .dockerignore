@@ -1,6 +1,67 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# [PT-BR] Arquivo .dockerignore — controla o que NÃO será enviado ao build.
+# [EN]    .dockerignore file — controls what will NOT be sent to the build context.
+# [ES]    Archivo .dockerignore — controla lo que NO se enviará al contexto de build.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Python environments / Entornos / Entornos
 venv/
+.venv/
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-.git/
-.gitignore
+*.py[cod]
+*$py.class
+
+# Environment variables / secrets / Variables de entorno / secretos
+.env
+*.env
+.env.*
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# VSCode / IDEs
+.vscode/
+.idea/
+.history/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# Node.js (caso haja front-end) / Node.js (frontend case) / Node.js (frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build / dist / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Coverage / testing
+.coverage
+coverage/
+htmlcov/
+.tox/
+pytest_cache/
+
+# System files / Archivos de sistema
 .DS_Store
+Thumbs.db
+
+# Obsidian / notas locais
+.obsidian/
+
+# Docker (artefatos locais)
+*.pid
+*.sock
+*.tmp
+docker-compose.override.yml

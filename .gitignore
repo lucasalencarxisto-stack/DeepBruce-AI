@@ -1,16 +1,84 @@
-# Ignore Python environment folder
-venv/
+# ──────────────────────────────────────────────────────────────────────────────
+# [PT-BR] Arquivo .gitignore — define arquivos/pastas ignorados pelo Git.
+# [EN]    .gitignore file — defines files/folders ignored by Git.
+# [ES]    Archivo .gitignore — define archivos/carpetas ignorados por Git.
+# [中文]   .gitignore 文件 — 定义应被 Git 忽略的文件/目录。
+# ──────────────────────────────────────────────────────────────────────────────
 
-# Byte-compiled / optimized / DLL files
+# --- Python virtual environments / Entornos virtuales -------------------------
+# [中文] Python 虚拟环境目录
+venv/
+.venv/
+
+# --- Byte-compiled / optimized / DLL files -----------------------------------
+# [中文] Python 编译缓存与临时产物
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Environment variables
+# --- Environment variables / secrets / Variables de entorno ------------------
+# [中文] 环境变量与敏感信息（不要提交）
 .env
+*.env
+.env.*
 
-# VSCode settings folder (se usar)
+# --- Logs --------------------------------------------------------------------
+# [中文] 日志文件
+*.log
+logs/
+*.out
+*.err
+
+# --- IDEs / Config ------------------------------------------------------------
+# [中文] IDE/编辑器配置
 .vscode/
+.idea/
+.history/
 
-# MacOS files
+# --- Jupyter / IPython --------------------------------------------------------
+# [中文] Jupyter/交互式笔记本相关
+.ipynb_checkpoints/
+*.ipynb
+
+# --- Docker ------------------------------------------------------------------
+# [中文] Docker 相关临时文件/覆盖文件
+*.pid
+*.sock
+*.tmp
+docker-compose.override.yml
+
+# --- System files / Archivos de sistema --------------------------------------
+# [中文] 系统生成的隐藏文件
 .DS_Store
+Thumbs.db
+
+# --- Node.js (caso use front-end) --------------------------------------------
+# [中文] Node.js 相关缓存与依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Build / dist / empaquetado ----------------------------------------------
+# [中文] 打包/构建产物
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# --- Coverage / testing / pruebas --------------------------------------------
+# [中文] 测试覆盖率与缓存
+.coverage
+coverage/
+htmlcov/
+.tox/
+pytest_cache/
+
+# --- Obsidian / notas --------------------------------------------------------
+# [中文] Obsidian/笔记应用文件夹
+.obsidian/
+
+# --- Cache -------------------------------------------------------------------
+# [中文] 缓存目录
+.cache/

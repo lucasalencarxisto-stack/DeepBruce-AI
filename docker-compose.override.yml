@@ -1,23 +1,107 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# [PT-BR] docker-compose.yml — stack OQS_step2 (API Flask + Ollama + tester).
+# [EN]    docker-compose.yml — OQS_step2 stack (Flask API + Ollama + tester).
+# [ES]    docker-compose.yml — stack OQS_step2 (API Flask + Ollama + tester).
+# [中文]   docker-compose.yml — OQS_step2 堆栈 (Flask API + Ollama + tester)。
+# ──────────────────────────────────────────────────────────────────────────────
+
 services:
   api:
+    build: .
+    container_name: oqs_step2_api
+    init: true
     ports:
-      - "9101:8000"
-    command: ["gunicorn","app:app","-w","2","--timeout","180","--graceful-timeout","60","--bind","0.0.0.0:8000"]
+      - "8000:8000"
+    env_file:
+      - .env
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: llama3.2:3b
-      OLLAMA_TIMEOUT: "150"
-      OLLAMA_NUM_CTX: "2048"
-      OLLAMA_NUM_PREDICT: "128"
-      OQS_SYSTEM_PROMPT: >-
-        Você é um assistente técnico do projeto OQS_step2 (Docker/Flask/Ollama).
-        Responda em PT-BR, de forma objetiva, com foco em comandos e diagnósticos.
-    volumes:
-      - ./app/static:/app/app/static:ro
+      APP_NAME: "portifolio-chat API"
+      APP_VERSION: "0.1.0"
+      # [PT-BR] Defaults seguros caso .env falte (podem ser sobrescritos)
+      # [EN]    Safe defaults if .env is missing (can be overridden)
+      # [ES]    Valores seguros si falta .env (se pueden sobrescribir)
+      # [中文]   如果缺少 .env，这些是安全的默认值（可以被覆盖）
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-120}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-1024}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-128}
+      PROVIDER: ${PROVIDER:-ollama}
 
-  ollama:
+      # [PT-BR] Tuning do Gunicorn em runtime
+      # [EN]    Gunicorn tuning at runtime
+      # [ES]    Ajustes de Gunicorn en tiempo de ejecución
+      # [中文]   Gunicorn 运行时参数调整
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
+
+    depends_on:
+      ollama:
+        condition: service_started      # [PT-BR] sobe sem aguardar healthy (dev) / [EN] start without waiting healthy (dev)
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 10s
+      # [PT-BR] Verifica /health da API periodicamente
+      # [EN]    Periodically check API /health
+      # [ES]    Verifica periódicamente /health de la API
+      # [中文]   定期检查 API /health
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 20s
+
+    restart: unless-stopped
+    networks: [oqs_net]
+    # [PT-BR] O CMD do Gunicorn vem do Dockerfile
+    # [EN]    Gunicorn CMD is defined in Dockerfile
+    # [ES]    El CMD de Gunicorn está en el Dockerfile
+    # [中文]   Gunicorn 的 CMD 定义在 Dockerfile 中
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    init: true
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      start_period: 90s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [oqs_net]
+
+  tester:
+    build: .
+    container_name: oqs_step2_tester
+    profiles: ["tester"]  # [PT-BR] só roda com --profile tester / [EN] only with profile / [ES] sólo con perfil / [中文] 仅在使用 --profile tester 时运行
+    depends_on:
+      ollama:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PROVIDER: ${PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      # [PT-BR] OpenAI só funciona se setar no .env
+      # [EN]    OpenAI only works if set in .env
+      # [ES]    OpenAI sólo funciona si se define en .env
+      # [中文]   OpenAI 仅在 .env 中设置时有效
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    entrypoint: ["python","test_ai.py"]
+    networks: [oqs_net]
+    # [PT-BR] Não expõe portas; roda sob demanda
+    # [EN]    No ports exposed; run on demand
+    # [ES]    No expone puertos; se ejecuta bajo demanda
+    # [中文]   不暴露端口；按需运行
+
+volumes:
+  ollama: {}
+
+networks:
+  oqs_net: {}

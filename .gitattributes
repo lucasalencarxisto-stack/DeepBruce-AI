@@ -1,1 +1,35 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# [PT-BR] Arquivo .gitattributes — define regras de normalização de arquivos.
+# [EN]    .gitattributes file — defines file normalization rules.
+# [ES]    Archivo .gitattributes — define reglas de normalización de archivos.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Normalize line endings automaticamente
 * text=auto
+
+# --- Código fonte / Source code / Código fuente -------------------------------
+*.py text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.env text eol=lf
+
+# --- Documentação / Documentation / Documentación -----------------------------
+*.md text eol=lf
+*.txt text eol=lf
+
+# --- Arquivos binários / Binary files / Archivos binarios --------------------
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.mp4 binary
+*.mov binary
+*.mp3 binary
+*.wav binary
