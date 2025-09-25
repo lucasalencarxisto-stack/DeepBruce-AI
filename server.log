@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/mnt/c/Users/User/Projetos/flask-openai-chat-app/wsgi.py", line 3, in <module>
+    app = create_app()
+          ^^^^^^^^^^^^
+  File "/mnt/c/Users/User/Projetos/flask-openai-chat-app/oqs_step3/__init__.py", line 24, in create_app
+    from .POST.chat_endpoints import bp as chat_bp
+  File "/mnt/c/Users/User/Projetos/flask-openai-chat-app/oqs_step3/POST/chat_endpoints.py", line 2, in <module>
+    from ..services.qa import extractive_answer
+  File "/mnt/c/Users/User/Projetos/flask-openai-chat-app/oqs_step3/services/qa.py", line 3, in <module>
+    from .chunk import split_sentences
+  File "/mnt/c/Users/User/Projetos/flask-openai-chat-app/oqs_step3/services/chunk.py", line 3, in <module>
+    from rank_bm25 import BM25Okapi
+ModuleNotFoundError: No module named 'rank_bm25'

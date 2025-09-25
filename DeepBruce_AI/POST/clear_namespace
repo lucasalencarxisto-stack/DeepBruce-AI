@@ -1,0 +1,9 @@
+@app.post("/clear_namespace")
+def clear_namespace():
+    data = request.get_json(force=True)
+    ns = data.get("namespace")
+    if not ns:
+        return jsonify({"error": "Provide 'namespace'"}), 400
+    store.delete_namespace(ns)
+    retriever.invalidate(ns)
+    return jsonify({"ok": True, "namespace": ns})
