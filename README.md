@@ -1,11 +1,23 @@
-# DeepBruce AI
+![CI](https://github.com/lucasalencarxisto-stack/DeepBruce-AI/actions/workflows/ci.yml/badge.svg)
 
-DeepBruce AI is a prototype assistant with a simple, self-hosted API and a lightweight RAG pipeline that pulls fresh context directly from Wikipedia.  
-The whole stack is Dockerized and can be lifted to any cloud (IaaS or PaaS) to support deeper Deep Learning / LLM development and experimentation.
+# DeepBruce-AI
+
+> Independent project, **not affiliated** with OpenAI.  
+> Portions of this project were inspired by the OpenAI Quickstart (MIT). See `THIRD_PARTY_NOTICES.md`.
+
+A prototype assistant with a self-hosted **Flask** API, **SSE** streaming, optional **local inference via Ollama**, and a lightweight **RAG** path that can fetch and inject context from Wikipedia. The stack is fully **Dockerized** and cloud-ready (IaaS/PaaS).
 
 ## Highlights
-- 🔌 Self-hosted API (Flask) with SSE streaming
-- 🧠 Local inference via Ollama (model-agnostic)
-- 📚 Lightweight RAG: fetch + chunk + prompt-inject from Wikipedia
-- 🐳 Fully containerized (Docker / Compose), cloud-ready
-- ⚙️ Tunable prompts & hyper-params via `.env`
+- 🔌 Self-hosted API (Flask) with **Server-Sent Events (SSE)**
+- 🧠 **Ollama** support (model-agnostic, local inference)
+- 📚 Lightweight **RAG**: fetch → chunk → inject (Wikipedia)
+- 🐳 **Docker/Compose** end-to-end
+- ⚙️ Tunable prompts & hyper-parameters via `.env`
+
+---
+
+## Quickstart (Python)
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -
+
