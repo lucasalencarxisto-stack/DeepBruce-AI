@@ -1,17 +1,23 @@
-# Ignore Python environment folder
-venv/
-
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
 
-# Environment variables
+# Flask / env / logs
 .env
+.env.*
+server.log
 
-# VSCode settings folder (se usar)
-.vscode/
+# Front-end
+node_modules/
+dist/
+build/
 
-# MacOS files
+# OS/IDE
 .DS_Store
-.env
+.idea/
+.vscode/
