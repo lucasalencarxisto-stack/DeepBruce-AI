@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  app-dev:
+    build: .
+    container_name: deepbruce_app_dev
+    command: ["python", "wsgi.py"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=development
+      - PROVIDER=${PROVIDER:-extractive}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-tinyllama}
+    volumes:
+      - ./:/app
+    depends_on:
+      - ollama
+    profiles:
+      - dev
+
+  app:
+    build: .
+    container_name: deepbruce_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - OQS_NAMESPACE=${OQS_NAMESPACE:-default}
+      - PROVIDER=${PROVIDER:-extractive}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-tinyllama}
+    depends_on:
+      - ollama
+    profiles:
+      - prod
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: deepbruce_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    profiles:
+      - prod
+      - dev
+
+volumes:
+  ollama_models:

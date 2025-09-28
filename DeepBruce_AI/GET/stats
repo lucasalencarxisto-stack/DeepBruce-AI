@@ -1,0 +1,9 @@
+@app.get("/stats")
+def stats():
+    ns = request.args.get("namespace")
+    rows = store.fetch_namespace(ns) if ns else None
+    if ns:
+        return jsonify({"namespace": ns, "chunks": len(rows)})
+    # agregado simples
+    # (para fazer agregado geral, precisaria consultar namespaces distintos)
+    return jsonify({"info": "Passe ?namespace=nome para contagem"})
