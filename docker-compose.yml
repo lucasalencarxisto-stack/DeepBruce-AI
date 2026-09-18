@@ -11,9 +11,9 @@ services:
       - .env
     environment:
       - FLASK_ENV=development
-      - PROVIDER=${PROVIDER:-extractive}
+      - OQS_NAMESPACE=${OQS_NAMESPACE:-default}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-tinyllama}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
     volumes:
       - ./:/app
     depends_on:
@@ -31,15 +31,14 @@ services:
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - OQS_NAMESPACE=${OQS_NAMESPACE:-default}
-      - PROVIDER=${PROVIDER:-extractive}
       - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-tinyllama}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
     depends_on:
       - ollama
     profiles:
       - prod
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 3s
       retries: 10

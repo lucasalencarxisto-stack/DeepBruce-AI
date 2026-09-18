@@ -1,13 +1,7 @@
 from flask import Flask, render_template
 from flask_cors import CORS
-import os
 
-# se usar .env no dev local, descomente:
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
+from .config import Settings
 
 def create_app():
     app = Flask(
@@ -15,24 +9,24 @@ def create_app():
         static_folder="../static",
         template_folder="../templates"
     )
-    CORS(app)
+    settings = Settings.from_env()
+    app.config["SETTINGS"] = settings
 
-    app.config["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY", "")
-    app.config["OQS_NAMESPACE"] = os.getenv("OQS_NAMESPACE", "default")
+    cors_origins = settings.cors_origins
+    if cors_origins:
+        CORS(app, origins=[origin.strip() for origin in cors_origins.split(",") if origin.strip()])
 
     # Blueprints do chat (two-step + single)
     from .POST.chat_endpoints import bp as chat_bp
     app.register_blueprint(chat_bp)
-    
+
     from .routes.chat import bp as api_chat_bp
+    from .routes.health import bp as health_bp
     app.register_blueprint(api_chat_bp)
+    app.register_blueprint(health_bp)
 
     @app.get("/")
     def home():
         return render_template("index.html")
-
-    @app.get("/health")
-    def health():
-        return {"status": "ok", "namespace": app.config["OQS_NAMESPACE"]}
 
     return app

@@ -1,7 +1,6 @@
 flask
 flask-cors
-openai>=1.40.0
 requests
-beautifulsoup4
-networkx
 python-dotenv
+gunicorn
+gevent

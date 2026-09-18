@@ -13,5 +13,5 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-index --find-links=/wheels /wheels/*
 COPY . /app
 EXPOSE 8000
-ENV FLASK_APP=wsgi.py FLASK_ENV=production OQS_NAMESPACE=default PROVIDER=extractive OLLAMA_HOST=http://127.0.0.1:11434 OLLAMA_MODEL=tinyllama
+ENV FLASK_APP=wsgi.py FLASK_ENV=production OQS_NAMESPACE=default OLLAMA_HOST=http://ollama:11434 OLLAMA_MODEL=gemma3:1b
 CMD ["gunicorn","wsgi:app","--bind","0.0.0.0:8000","--worker-class","gevent","--workers","2","--timeout","120"]

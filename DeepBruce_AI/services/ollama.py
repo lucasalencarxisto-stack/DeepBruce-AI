@@ -1,7 +1,8 @@
 import json
-import os
 
 import requests
+
+from DeepBruce_AI.config import Settings
 
 
 class OllamaServiceError(Exception):
@@ -11,14 +12,12 @@ class OllamaServiceError(Exception):
         self.message = message
 
 
-def stream_chat(message: str):
-    host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
-    model = os.getenv("OLLAMA_MODEL", "gemma3:1b")
-
-    url = f"{host.rstrip('/')}/api/chat"
+def stream_chat(message: str, settings: Settings | None = None):
+    settings = settings or Settings.from_env()
+    url = f"{settings.ollama_host}/api/chat"
 
     payload = {
-        "model": model,
+        "model": settings.ollama_model,
         "messages": [
             {
                 "role": "system",
@@ -47,13 +46,13 @@ def stream_chat(message: str):
             url,
             json=payload,
             stream=True,
-            timeout=(5, 300),
+            timeout=(settings.ollama_connect_timeout, settings.ollama_read_timeout),
         ) as response:
 
             if response.status_code == 404:
                 raise OllamaServiceError(
                     "ollama_model_not_found",
-                    f"O modelo '{model}' não foi encontrado no Ollama.",
+                    f"O modelo '{settings.ollama_model}' não foi encontrado no Ollama.",
                 )
 
             response.raise_for_status()
