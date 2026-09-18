@@ -23,6 +23,9 @@ def create_app():
     # Blueprints do chat (two-step + single)
     from .POST.chat_endpoints import bp as chat_bp
     app.register_blueprint(chat_bp)
+    
+    from .routes.chat import bp as api_chat_bp
+    app.register_blueprint(api_chat_bp)
 
     @app.get("/")
     def home():
