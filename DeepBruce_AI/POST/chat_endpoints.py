@@ -1,21 +1,19 @@
-from flask import Blueprint, request, Response, stream_with_context, jsonify
-import os, json, requests
+import json
+import requests
+from flask import Blueprint, current_app, request, Response, stream_with_context, jsonify
 
 # 1) Cria o Blueprint ANTES de usar decorators
 bp = Blueprint("chat", __name__)
-
-# 2) Config do Ollama via .env
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:1b")
 
 # 3) Memória simples para Flow1 (POST /chat -> GET /stream)
 _last_query = {"text": "Diga oi em PT-BR."}
 
 def _ollama_stream_chat(prompt: str):
     """Stream da API /api/chat do Ollama, yield de tokens."""
-    url = f"{OLLAMA_HOST}/api/chat"
+    settings = current_app.config["SETTINGS"]
+    url = f"{settings.ollama_host}/api/chat"
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": settings.ollama_model,
         "messages": [
             {"role": "system", "content": "Responda sempre em PT-BR, claro e conciso."},
             {"role": "user", "content": prompt}
@@ -28,7 +26,12 @@ def _ollama_stream_chat(prompt: str):
             "num_predict": 256
         }
     }
-    with requests.post(url, json=payload, stream=True, timeout=(5, 300)) as r:
+    with requests.post(
+        url,
+        json=payload,
+        stream=True,
+        timeout=(settings.ollama_connect_timeout, settings.ollama_read_timeout),
+    ) as r:
         r.raise_for_status()
         for raw in r.iter_lines(decode_unicode=False):
             if not raw:

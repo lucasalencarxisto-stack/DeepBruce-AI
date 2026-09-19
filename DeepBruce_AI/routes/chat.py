@@ -1,11 +1,8 @@
 import json
 
-from flask import Blueprint, Response, request, stream_with_context
+from flask import Blueprint, Response, current_app, request, stream_with_context
 
-from DeepBruce_AI.services.ollama import (
-    OllamaServiceError,
-    stream_chat,
-)
+from DeepBruce_AI.services import ollama
 
 
 bp = Blueprint("api_chat", __name__, url_prefix="/api")
@@ -37,7 +34,7 @@ def chat():
 
     def generate():
         try:
-            for token in stream_chat(message):
+            for token in ollama.stream_chat(message, current_app.config["SETTINGS"]):
                 payload = json.dumps(
                     {"content": token},
                     ensure_ascii=False,
@@ -47,7 +44,7 @@ def chat():
 
             yield "event: done\ndata: {}\n\n"
 
-        except OllamaServiceError as exc:
+        except ollama.OllamaServiceError as exc:
             payload = json.dumps(
                 {
                     "code": exc.code,
