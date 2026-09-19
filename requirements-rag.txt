@@ -1,0 +1,6 @@
+-r requirements.txt
+beautifulsoup4
+networkx
+rank-bm25
+scikit-learn
+nltk
