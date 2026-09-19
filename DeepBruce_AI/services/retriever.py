@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List
 
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?。！？])\s+|\n+")
@@ -9,30 +9,20 @@ _WHITESPACE = re.compile(r"[ \t]+")
 
 @dataclass(frozen=True)
 class Chunk:
-    """
-    Representa um fragmento de documento usado pelo pipeline RAG.
-    """
-
     id: str
     text: str
     position: int
     source: str = ""
     title: str = ""
     url: str = ""
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def to_record(self) -> dict[str, Any]:
-        """
-        Converte o Chunk para o formato esperado pelo armazenamento
-        e pelo Retriever.
-        """
-
+    def to_record(self) -> Dict[str, Any]:
         meta = {
             "position": self.position,
             "source": self.source,
             "title": self.title,
             "url": self.url,
-            "char_count": len(self.text),
             **self.metadata,
         }
 
@@ -43,46 +33,31 @@ class Chunk:
         }
 
 
-def split_sentences(text: str) -> list[str]:
+def split_sentences(text: str) -> List[str]:
     """
-    Divide um texto em frases/unidades menores.
-
-    Mantido também por compatibilidade com o qa.py legado.
+    Divide texto em frases preservando unidades úteis para chunking
+    e para o TextRank legado de qa.py.
     """
-
     text = (text or "").strip()
 
     if not text:
         return []
 
-    sentences = []
+    parts = []
 
-    for part in _SENTENCE_SPLIT.split(text):
-        normalized = _WHITESPACE.sub(" ", part).strip()
+    for piece in _SENTENCE_SPLIT.split(text):
+        normalized = _WHITESPACE.sub(" ", piece).strip()
 
         if normalized:
-            sentences.append(normalized)
+            parts.append(normalized)
 
-    return sentences
+    return parts
 
 
-def _split_oversized_unit(
-    text: str,
-    max_chars: int,
-) -> list[str]:
+def _split_oversized_text(text: str, max_chars: int) -> List[str]:
     """
-    Divide uma frase/unidade maior que max_chars tentando
-    preservar palavras inteiras.
-
-    Palavras individuais maiores que o limite são divididas
-    em partes menores.
+    Divide uma unidade maior que max_chars tentando preservar palavras.
     """
-
-    text = text.strip()
-
-    if not text:
-        return []
-
     if len(text) <= max_chars:
         return [text]
 
@@ -91,8 +66,8 @@ def _split_oversized_unit(
     if not words:
         return []
 
-    parts: list[str] = []
-    current: list[str] = []
+    parts = []
+    current = []
 
     for word in words:
         candidate = " ".join(current + [word])
@@ -119,21 +94,12 @@ def _split_oversized_unit(
     return parts
 
 
-def _prepare_units(
-    text: str,
-    max_chars: int,
-) -> list[str]:
-    """
-    Transforma o documento em unidades seguras para chunking.
-
-    Nenhuma unidade retornada deve ultrapassar max_chars.
-    """
-
-    units: list[str] = []
+def _prepare_units(text: str, max_chars: int) -> List[str]:
+    units = []
 
     for sentence in split_sentences(text):
         units.extend(
-            _split_oversized_unit(
+            _split_oversized_text(
                 sentence,
                 max_chars=max_chars,
             )
@@ -151,49 +117,34 @@ def build_chunks(
     url: str = "",
     max_chars: int = 1400,
     overlap_sentences: int = 2,
-    metadata: dict[str, Any] | None = None,
-) -> list[Chunk]:
+    metadata: Dict[str, Any] | None = None,
+) -> List[Chunk]:
     """
-    Constrói chunks preparados para uso em RAG.
+    Constrói chunks com tamanho controlado, overlap e metadados.
 
-    Estratégia:
-
-    - preserva frases sempre que possível;
-    - respeita max_chars;
-    - reutiliza frases do chunk anterior como overlap;
-    - mantém metadados da fonte;
-    - gera IDs previsíveis e ordenados.
+    O overlap reaproveita as últimas unidades do chunk anterior,
+    reduzindo perda de contexto nas fronteiras entre chunks.
     """
-
     if max_chars <= 0:
-        raise ValueError(
-            "max_chars deve ser maior que zero."
-        )
+        raise ValueError("max_chars deve ser maior que zero.")
 
     if overlap_sentences < 0:
-        raise ValueError(
-            "overlap_sentences não pode ser negativo."
-        )
+        raise ValueError("overlap_sentences não pode ser negativo.")
 
     source_id = (source_id or "").strip()
 
     if not source_id:
-        raise ValueError(
-            "source_id é obrigatório."
-        )
+        raise ValueError("source_id é obrigatório.")
 
-    units = _prepare_units(
-        text=text,
-        max_chars=max_chars,
-    )
+    units = _prepare_units(text, max_chars)
 
     if not units:
         return []
 
-    chunks: list[Chunk] = []
-    current: list[str] = []
+    chunks: List[Chunk] = []
+    current: List[str] = []
 
-    def append_chunk(parts: list[str]) -> None:
+    def append_chunk(parts: List[str]) -> None:
         chunk_text = " ".join(parts).strip()
 
         if not chunk_text:
@@ -214,9 +165,7 @@ def build_chunks(
         )
 
     for unit in units:
-        candidate = " ".join(
-            current + [unit]
-        )
+        candidate = " ".join(current + [unit])
 
         if current and len(candidate) > max_chars:
             append_chunk(current)
@@ -226,17 +175,15 @@ def build_chunks(
                 len(current),
             )
 
-            if overlap_count:
-                current = current[-overlap_count:]
-            else:
-                current = []
+            current = (
+                current[-overlap_count:]
+                if overlap_count
+                else []
+            )
 
-            # O overlap também precisa respeitar max_chars.
             while (
                 current
-                and len(
-                    " ".join(current + [unit])
-                ) > max_chars
+                and len(" ".join(current + [unit])) > max_chars
             ):
                 current.pop(0)
 
@@ -245,11 +192,7 @@ def build_chunks(
     if current:
         final_text = " ".join(current).strip()
 
-        # Evita gerar um último chunk idêntico ao anterior.
-        if (
-            not chunks
-            or chunks[-1].text != final_text
-        ):
+        if not chunks or chunks[-1].text != final_text:
             append_chunk(current)
 
     return chunks
