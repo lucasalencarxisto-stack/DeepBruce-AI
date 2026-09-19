@@ -1,198 +1,402 @@
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Protocol
+
+from nltk.stem.snowball import SnowballStemmer
+from rank_bm25 import BM25Okapi
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?。！？])\s+|\n+")
-_WHITESPACE = re.compile(r"[ \t]+")
+_TOKEN = re.compile(r"\w+", re.UNICODE)
+_STEMMER = SnowballStemmer("portuguese")
 
 
-@dataclass(frozen=True)
-class Chunk:
-    id: str
-    text: str
-    position: int
-    source: str = ""
-    title: str = ""
-    url: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_record(self) -> Dict[str, Any]:
-        meta = {
-            "position": self.position,
-            "source": self.source,
-            "title": self.title,
-            "url": self.url,
-            **self.metadata,
-        }
-
-        return {
-            "id": self.id,
-            "text": self.text,
-            "meta": meta,
-        }
+class NamespaceStore(Protocol):
+    def fetch_namespace(
+        self,
+        namespace: str,
+    ) -> List[Dict[str, Any]]:
+        ...
 
 
-def split_sentences(text: str) -> List[str]:
+def _normalize_scores(scores) -> List[float]:
     """
-    Divide texto em frases preservando unidades úteis para chunking
-    e para o TextRank legado de qa.py.
+    Normaliza scores para o intervalo 0..1.
     """
-    text = (text or "").strip()
+    values = [float(score) for score in scores]
 
-    if not text:
+    if not values:
         return []
 
-    parts = []
+    minimum = min(values)
+    maximum = max(values)
 
-    for piece in _SENTENCE_SPLIT.split(text):
-        normalized = _WHITESPACE.sub(" ", piece).strip()
+    if maximum == minimum:
+        if maximum > 0:
+            return [1.0] * len(values)
 
-        if normalized:
-            parts.append(normalized)
+        return [0.0] * len(values)
 
-    return parts
+    return [
+        (value - minimum) / (maximum - minimum)
+        for value in values
+    ]
 
 
-def _split_oversized_text(text: str, max_chars: int) -> List[str]:
+def _token_set(text: str) -> set[str]:
     """
-    Divide uma unidade maior que max_chars tentando preservar palavras.
+    Cria um conjunto simples de tokens para comparação
+    de similaridade entre documentos.
     """
-    if len(text) <= max_chars:
-        return [text]
-
-    words = text.split()
-
-    if not words:
-        return []
-
-    parts = []
-    current = []
-
-    for word in words:
-        candidate = " ".join(current + [word])
-
-        if current and len(candidate) > max_chars:
-            parts.append(" ".join(current))
-            current = []
-
-        if len(word) > max_chars:
-            if current:
-                parts.append(" ".join(current))
-                current = []
-
-            for start in range(0, len(word), max_chars):
-                parts.append(word[start:start + max_chars])
-
-            continue
-
-        current.append(word)
-
-    if current:
-        parts.append(" ".join(current))
-
-    return parts
+    return {
+        token.lower()
+        for token in _TOKEN.findall(text or "")
+    }
 
 
-def _prepare_units(text: str, max_chars: int) -> List[str]:
-    units = []
+def _jaccard_similarity(
+    first: str,
+    second: str,
+) -> float:
+    """
+    Calcula similaridade entre dois textos usando Jaccard.
+    """
+    first_tokens = _token_set(first)
+    second_tokens = _token_set(second)
 
-    for sentence in split_sentences(text):
-        units.extend(
-            _split_oversized_text(
-                sentence,
-                max_chars=max_chars,
+    if not first_tokens or not second_tokens:
+        return 0.0
+
+    intersection = first_tokens & second_tokens
+    union = first_tokens | second_tokens
+
+    return len(intersection) / len(union)
+
+
+class Retriever:
+    """
+    Retriever híbrido do pipeline RAG.
+
+    Estratégia:
+
+    1. BM25 recupera candidatos lexicalmente relevantes.
+    2. TF-IDF por palavras analisa termos e bigramas.
+    3. TF-IDF por caracteres ajuda com variações morfológicas.
+    4. Os scores são combinados em um ranking híbrido.
+    5. Chunks muito semelhantes são removidos.
+    """
+
+    def __init__(
+        self,
+        store: NamespaceStore,
+        *,
+        bm25_weight: float = 0.45,
+        tfidf_weight: float = 0.55,
+        candidate_multiplier: int = 4,
+        duplicate_threshold: float = 0.90,
+    ):
+        if bm25_weight < 0 or tfidf_weight < 0:
+            raise ValueError(
+                "Os pesos do ranking não podem ser negativos."
             )
-        )
 
-    return units
+        total_weight = bm25_weight + tfidf_weight
 
+        if total_weight <= 0:
+            raise ValueError(
+                "Ao menos um peso deve ser maior que zero."
+            )
 
-def build_chunks(
-    text: str,
-    *,
-    source_id: str,
-    source: str = "",
-    title: str = "",
-    url: str = "",
-    max_chars: int = 1400,
-    overlap_sentences: int = 2,
-    metadata: Dict[str, Any] | None = None,
-) -> List[Chunk]:
-    """
-    Constrói chunks com tamanho controlado, overlap e metadados.
+        if candidate_multiplier <= 0:
+            raise ValueError(
+                "candidate_multiplier deve ser maior que zero."
+            )
 
-    O overlap reaproveita as últimas unidades do chunk anterior,
-    reduzindo perda de contexto nas fronteiras entre chunks.
-    """
-    if max_chars <= 0:
-        raise ValueError("max_chars deve ser maior que zero.")
+        if not 0 <= duplicate_threshold <= 1:
+            raise ValueError(
+                "duplicate_threshold deve estar entre 0 e 1."
+            )
 
-    if overlap_sentences < 0:
-        raise ValueError("overlap_sentences não pode ser negativo.")
+        self.store = store
 
-    source_id = (source_id or "").strip()
+        # Normalizamos os pesos para sempre somarem 1.
+        self.bm25_weight = bm25_weight / total_weight
+        self.tfidf_weight = tfidf_weight / total_weight
 
-    if not source_id:
-        raise ValueError("source_id é obrigatório.")
+        self.candidate_multiplier = candidate_multiplier
+        self.duplicate_threshold = duplicate_threshold
 
-    units = _prepare_units(text, max_chars)
+        self._cache: Dict[str, Dict[str, Any]] = {}
 
-    if not units:
-        return []
+    def _tokenize(
+        self,
+        text: str,
+    ) -> List[str]:
+        """
+        Tokeniza e aplica stemming em português.
 
-    chunks: List[Chunk] = []
-    current: List[str] = []
+        Exemplo aproximado:
 
-    def append_chunk(parts: List[str]) -> None:
-        chunk_text = " ".join(parts).strip()
+        criar
+        criou
+        criada
 
-        if not chunk_text:
+        passam a compartilhar uma raiz semelhante.
+        """
+        return [
+            _STEMMER.stem(token.lower())
+            for token in _TOKEN.findall(text or "")
+        ]
+
+    def invalidate(
+        self,
+        namespace: str,
+    ) -> None:
+        """
+        Remove um namespace do cache.
+        """
+        self._cache.pop(namespace, None)
+
+    def _ensure_index(
+        self,
+        namespace: str,
+    ) -> None:
+        """
+        Cria o índice BM25 caso ainda não esteja em cache.
+        """
+        if namespace in self._cache:
             return
 
-        position = len(chunks)
+        rows = self.store.fetch_namespace(namespace)
 
-        chunks.append(
-            Chunk(
-                id=f"{source_id}-{position:04d}",
-                text=chunk_text,
-                position=position,
-                source=source,
-                title=title,
-                url=url,
-                metadata=dict(metadata or {}),
-            )
+        corpus = [
+            row.get("text", "")
+            for row in rows
+        ]
+
+        tokens = [
+            self._tokenize(text)
+            for text in corpus
+        ]
+
+        bm25 = (
+            BM25Okapi(tokens)
+            if tokens
+            else None
         )
 
-    for unit in units:
-        candidate = " ".join(current + [unit])
+        self._cache[namespace] = {
+            "rows": rows,
+            "bm25": bm25,
+        }
 
-        if current and len(candidate) > max_chars:
-            append_chunk(current)
+    def _remove_duplicates(
+        self,
+        results: List[Dict[str, Any]],
+        top_k: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Remove documentos quase duplicados do resultado final.
+        """
+        selected: List[Dict[str, Any]] = []
 
-            overlap_count = min(
-                overlap_sentences,
-                len(current),
+        for candidate in results:
+            candidate_text = candidate["document"]
+
+            duplicate = any(
+                _jaccard_similarity(
+                    candidate_text,
+                    selected_item["document"],
+                )
+                >= self.duplicate_threshold
+                for selected_item in selected
             )
 
-            current = (
-                current[-overlap_count:]
-                if overlap_count
-                else []
+            if duplicate:
+                continue
+
+            selected.append(candidate)
+
+            if len(selected) >= top_k:
+                break
+
+        return selected
+
+    def search(
+        self,
+        namespace: str,
+        query: str,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Executa recuperação híbrida BM25 + TF-IDF.
+        """
+        query = (query or "").strip()
+
+        if not query or top_k <= 0:
+            return []
+
+        query_tokens = self._tokenize(query)
+
+        if not query_tokens:
+            return []
+
+        self._ensure_index(namespace)
+
+        entry = self._cache.get(namespace, {})
+
+        rows = entry.get("rows", [])
+        bm25 = entry.get("bm25")
+
+        if not rows or bm25 is None:
+            return []
+
+        # ---------------------------------------
+        # 1. Recuperação inicial com BM25
+        # ---------------------------------------
+
+        raw_bm25_scores = bm25.get_scores(
+            query_tokens
+        )
+
+        candidate_count = min(
+            len(rows),
+            max(
+                top_k * self.candidate_multiplier,
+                top_k,
+            ),
+        )
+
+        indexes = sorted(
+            range(len(raw_bm25_scores)),
+            key=lambda index: raw_bm25_scores[index],
+            reverse=True,
+        )[:candidate_count]
+
+        candidates = [
+            rows[index]
+            for index in indexes
+        ]
+
+        candidate_bm25_scores = [
+            raw_bm25_scores[index]
+            for index in indexes
+        ]
+
+        texts = [
+            candidate.get("text", "")
+            for candidate in candidates
+        ]
+
+        # ---------------------------------------
+        # 2. TF-IDF por palavras + caracteres
+        # ---------------------------------------
+
+        try:
+            word_vectorizer = TfidfVectorizer(
+                tokenizer=self._tokenize,
+                token_pattern=None,
+                lowercase=False,
+                ngram_range=(1, 2),
+                min_df=1,
             )
 
-            while (
-                current
-                and len(" ".join(current + [unit])) > max_chars
-            ):
-                current.pop(0)
+            word_matrix = word_vectorizer.fit_transform(
+                texts + [query]
+            )
 
-        current.append(unit)
+            word_document_matrix = word_matrix[:-1]
+            word_query_vector = word_matrix[-1]
 
-    if current:
-        final_text = " ".join(current).strip()
+            word_scores = cosine_similarity(
+                word_query_vector,
+                word_document_matrix,
+            )[0]
 
-        if not chunks or chunks[-1].text != final_text:
-            append_chunk(current)
+            char_vectorizer = TfidfVectorizer(
+                analyzer="char_wb",
+                ngram_range=(3, 5),
+                min_df=1,
+            )
 
-    return chunks
+            char_matrix = char_vectorizer.fit_transform(
+                texts + [query]
+            )
+
+            char_document_matrix = char_matrix[:-1]
+            char_query_vector = char_matrix[-1]
+
+            char_scores = cosine_similarity(
+                char_query_vector,
+                char_document_matrix,
+            )[0]
+
+        except ValueError:
+            return []
+
+        # 70% palavras/stemming
+        # 30% similaridade morfológica por caracteres
+        tfidf_scores = (
+            0.70 * word_scores
+            + 0.30 * char_scores
+        )
+
+        # ---------------------------------------
+        # 3. Normalização do BM25
+        # ---------------------------------------
+
+        normalized_bm25_scores = _normalize_scores(
+            candidate_bm25_scores
+        )
+
+        # ---------------------------------------
+        # 4. Ranking híbrido
+        # ---------------------------------------
+
+        ranked_results = []
+
+        for position, candidate in enumerate(candidates):
+            bm25_score = normalized_bm25_scores[position]
+            tfidf_score = float(
+                tfidf_scores[position]
+            )
+
+            final_score = (
+                self.bm25_weight * bm25_score
+                + self.tfidf_weight * tfidf_score
+            )
+
+            ranked_results.append(
+                {
+                    "id": candidate["id"],
+                    "document": candidate.get(
+                        "text",
+                        "",
+                    ),
+                    "metadata": candidate.get(
+                        "meta",
+                        {},
+                    ),
+                    "score": float(final_score),
+                    "bm25_score": float(bm25_score),
+                    "tfidf_score": tfidf_score,
+                }
+            )
+
+        # ---------------------------------------
+        # 5. Ordenação final
+        # ---------------------------------------
+
+        ranked_results.sort(
+            key=lambda result: result["score"],
+            reverse=True,
+        )
+
+        # ---------------------------------------
+        # 6. Deduplicação
+        # ---------------------------------------
+
+        return self._remove_duplicates(
+            ranked_results,
+            top_k=top_k,
+        )
