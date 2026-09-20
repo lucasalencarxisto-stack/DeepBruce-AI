@@ -22,7 +22,9 @@ def create_app():
 
     from .routes.chat import bp as api_chat_bp
     from .routes.health import bp as health_bp
+    from .routes.rag_chat import bp as api_rag_chat_bp
     app.register_blueprint(api_chat_bp)
+    app.register_blueprint(api_rag_chat_bp)
     app.register_blueprint(health_bp)
 
     @app.get("/")
