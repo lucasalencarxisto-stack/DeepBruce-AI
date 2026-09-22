@@ -8,6 +8,14 @@ from DeepBruce_AI.services.clarifier import (
 from DeepBruce_AI.services.conversation import (
     ConversationManager,
 )
+from DeepBruce_AI.services.entity_resolution import (
+    EntityCandidate,
+    EntityResolutionResult,
+    EntityStatus,
+    extract_entity_text,
+    resolve_entity,
+    should_resolve_entity,
+)
 from DeepBruce_AI.services.rag import (
     stream_rag_answer,
 )
@@ -15,7 +23,13 @@ from DeepBruce_AI.services.router import (
     MessageRouter,
     RouteDecision,
 )
+from DeepBruce_AI.services.wiki import (
+    search_wikipedia,
+)
 
+from DeepBruce_AI.services.language import (
+    detect_language,
+)
 
 class DeepBruceOrchestrator:
     """
@@ -27,14 +41,15 @@ class DeepBruceOrchestrator:
         -> Ollama Core
 
     research
+        -> Entity Resolver
         -> Wikipedia RAG Core
 
     ambiguous
         -> Clarification Flow
 
     O orchestrator não conhece Flask, HTTP ou SSE.
-    Ele apenas produz eventos internos que podem ser
-    convertidos pela camada de rota.
+    Ele produz eventos internos consumidos pela
+    camada de rota.
     """
 
     def __init__(
@@ -81,6 +96,10 @@ class DeepBruceOrchestrator:
             message
         )
 
+        language = detect_language(
+             message
+        )
+
         state = (
             self.conversations
             .register_message(
@@ -98,10 +117,9 @@ class DeepBruceOrchestrator:
             "conversation_id": conversation_id,
         }
 
-        # Se havia uma ambiguidade pendente
-        # e a nova mensagem conseguiu ser
-        # classificada normalmente, consideramos
-        # o esclarecimento resolvido.
+        # Se havia esclarecimento pendente e
+        # agora conseguimos uma rota normal,
+        # consideramos a ambiguidade resolvida.
         if (
             state.pending_clarification
             and decision.route != "ambiguous"
@@ -114,6 +132,7 @@ class DeepBruceOrchestrator:
             yield from self._stream_chat(
                 message,
                 settings,
+                language,
             )
             return
 
@@ -121,6 +140,8 @@ class DeepBruceOrchestrator:
             yield from self._stream_research(
                 message,
                 settings,
+                conversation_id,
+                language,
             )
             return
 
@@ -145,6 +166,7 @@ class DeepBruceOrchestrator:
         self,
         message: str,
         settings: Settings,
+        language: str,
     ) -> Iterator[Dict[str, Any]]:
         """
         Núcleo de conversa simples.
@@ -155,6 +177,7 @@ class DeepBruceOrchestrator:
         for token in ollama.stream_chat(
             message,
             settings,
+            lang=language,
         ):
             yield {
                 "type": "token",
@@ -165,17 +188,162 @@ class DeepBruceOrchestrator:
         self,
         message: str,
         settings: Settings,
+        conversation_id: str,
+        language: str,
     ) -> Iterator[Dict[str, Any]]:
         """
         Núcleo de pesquisa.
 
-        Reutiliza o pipeline RAG existente.
+        Consultas diretas por entidades passam
+        primeiro pelo Entity Resolver.
+
+        Pesquisas gerais seguem diretamente
+        para o pipeline RAG.
         """
 
-        yield from stream_rag_answer(
-            message,
-            settings,
+        if not should_resolve_entity(
+            message
+        ):
+            yield from stream_rag_answer(
+                message,
+                settings,
+                resolved_title=resolution.resolved_title,
+                lang=language,
+            )
+
+            return
+
+        entity_text = extract_entity_text(
+            message
         )
+
+        search_results = search_wikipedia(
+            entity_text,
+            lang=language,
+            limit=5,
+        )
+
+        candidates = [
+            EntityCandidate(
+                title=result["title"],
+                url=result.get("url"),
+            )
+            for result in search_results
+            if result.get("title")
+        ]
+
+        resolution = resolve_entity(
+            message,
+            candidates,
+        )
+
+        if (
+            resolution.status
+            == EntityStatus.RESOLVED
+            and resolution.resolved_title
+        ):
+            yield from stream_rag_answer(
+                message,
+                settings,
+                search_query=(
+                    resolution.resolved_title
+                ),
+            )
+            return
+
+        if (
+            resolution.status
+            == EntityStatus.AMBIGUOUS
+        ):
+            yield from self._handle_entity_ambiguity(
+                message,
+                resolution,
+                conversation_id,
+            )
+            return
+
+        yield {
+            "type": "fallback",
+            "code": "entity_not_found",
+            "message": (
+                "Não encontrei uma entidade "
+                "suficientemente clara na Wikipédia "
+                "para pesquisar com segurança. "
+                "Tente informar o nome completo "
+                "ou adicionar mais contexto."
+            ),
+        }
+
+    def _handle_entity_ambiguity(
+        self,
+        message: str,
+        resolution: EntityResolutionResult,
+        conversation_id: str,
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Solicita esclarecimento quando a intenção
+        é clara, mas existem múltiplas entidades
+        plausíveis.
+        """
+
+        if self.conversations.should_fallback(
+            conversation_id
+        ):
+            yield {
+                "type": "fallback",
+                "code": (
+                    "clarification_limit_reached"
+                ),
+                "message": (
+                    "Ainda não consegui identificar "
+                    "qual entidade você deseja pesquisar. "
+                    "Tente informar o nome completo "
+                    "ou adicionar mais contexto."
+                ),
+            }
+
+            self.conversations.resolve_clarification(
+                conversation_id
+            )
+
+            return
+
+        state = (
+            self.conversations
+            .register_clarification(
+                conversation_id
+            )
+        )
+
+        options = [
+            {
+                "label": candidate.title,
+                "query": (
+                    f"Quem é {candidate.title}?"
+                ),
+            }
+            for candidate
+            in resolution.candidates[:5]
+        ]
+
+        yield {
+            "type": "clarification",
+            "message": (
+                "Encontrei mais de uma entidade "
+                "possível. Qual delas você quis dizer?"
+            ),
+            "original_message": message,
+            "confidence": resolution.confidence,
+            "attempt": (
+                state.clarification_attempts
+            ),
+            "keywords": (
+                [resolution.entity_text]
+                if resolution.entity_text
+                else []
+            ),
+            "options": options,
+        }
 
     def _handle_ambiguous(
         self,
@@ -184,11 +352,8 @@ class DeepBruceOrchestrator:
         conversation_id: str,
     ) -> Iterator[Dict[str, Any]]:
         """
-        Gerencia o fluxo ambíguo.
-
-        Primeiro verifica se ainda podemos pedir
-        esclarecimento. Caso o limite tenha sido
-        atingido, retorna fallback seguro.
+        Gerencia ambiguidades detectadas
+        pelo Intent Router.
         """
 
         if self.conversations.should_fallback(
@@ -209,7 +374,6 @@ class DeepBruceOrchestrator:
                 ),
             }
 
-            # Libera o estado para futuras perguntas.
             self.conversations.resolve_clarification(
                 conversation_id
             )

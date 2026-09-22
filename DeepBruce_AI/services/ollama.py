@@ -101,17 +101,31 @@ def _stream_messages(
 def stream_chat(
     message: str,
     settings: Settings | None = None,
+    *,
+    lang: str = "pt",
 ):
     settings = settings or Settings.from_env()
 
+    language_names = {
+        "pt": "português basileiro",
+        "en": "English",
+        "es": "español",
+    }
+
+    target_language = language_names.get(
+        lang,
+        "Português brasileiro"
+    )
+
     messages = [
-        {
+         {
             "role": "system",
             "content": (
                 "Você é DeepBruce, um assistente de "
                 "inteligência artificial. "
-                "Responda em português brasileiro quando "
-                "o usuário falar em português. "
+                f"Responda EXCLUSIVAMENTE em {target_language}. "
+                "Não mude para outro idioma, exceto se "
+                "o usuário pedir explicitamente uma tradução. "
                 "Seja claro, útil e objetivo."
             ),
         },
@@ -131,17 +145,31 @@ def stream_chat_with_context(
     message: str,
     context: str,
     settings: Settings | None = None,
+    *,
+    lang: str = "pt",
 ):
     settings = settings or Settings.from_env()
 
-    system_prompt = """
+    language_names = {
+        "pt": "português brasileiro",
+        "en": "English",
+        "es": "español",
+    }
+
+    target_language = language_names.get(
+        lang,
+        "português brasileiro",
+    )
+
+    system_prompt = f"""
 Você é DeepBruce, um assistente de inteligência artificial
 com acesso a informações recuperadas por um sistema RAG.
 
 Use o contexto recuperado como base factual da resposta.
 
 Regras:
-- responda em português brasileiro quando a pergunta estiver em português;
+- responda EXCLUSIVAMENTE em {target_language};
+- não mude para outro idioma sem solicitação explícita do usuário;
 - seja claro, natural e suficientemente detalhado;
 - não invente fatos que não estejam sustentados pelo contexto;
 - se o contexto for insuficiente, diga isso claramente;

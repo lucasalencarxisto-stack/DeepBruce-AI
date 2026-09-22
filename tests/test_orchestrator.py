@@ -75,12 +75,19 @@ def test_chat_route_streams_ollama_tokens(
         Intent.CHAT
     )
 
-    def fake_stream_chat(
-        message,
-        settings,
-    ):
-        yield "Olá"
-        yield "!"
+    received = {}
+
+def fake_stream_chat(
+    message,
+    settings,
+    *,
+    lang="pt",
+):
+    received["message"] = message
+    received["lang"] = lang
+
+    yield "Olá"
+    yield "!"
     
     monkeypatch.setattr(
         "DeepBruce_AI.services.orchestrator."
@@ -99,15 +106,15 @@ def test_chat_route_streams_ollama_tokens(
     assert events[0]["type"] == "route"
     assert events[0]["route"] == "chat"
 
-    assert events[1] == {
-        "type": "token",
-        "content": "Olá",
-    }
+    assert (
+        received["message"]
+        == "Olá Bruce"
+    )
 
-    assert events[2] == {
-        "type": "token",
-        "content": "!",
-    }
+    assert (
+        received["lang"]
+        == "pt"
+    )
 
 
 def test_research_route_uses_rag(
@@ -117,10 +124,36 @@ def test_research_route_uses_rag(
         Intent.RESEARCH
     )
 
+    def fake_search_wikipedia(
+        query,
+        *,
+        lang="pt",
+        limit=5,
+    ):
+        return [
+            {
+                "title": "Alan Turing",
+                "url": "https://example.com/alan-turing",
+                "rank": 1,
+            },
+            {
+                "title": "Máquina de Turing",
+                "url": "https://example.com/turing-machine",
+                "rank": 2,
+            },
+        ]
+
+    received = {}
+
     def fake_stream_rag_answer(
         message,
         settings,
+        *,
+        search_query=None,
     ):
+        received["message"] = message
+        received["search_query"] = search_query
+
         yield {
             "type": "sources",
             "sources": [
@@ -139,6 +172,12 @@ def test_research_route_uses_rag(
 
     monkeypatch.setattr(
         "DeepBruce_AI.services.orchestrator."
+        "search_wikipedia",
+        fake_search_wikipedia,
+    )
+
+    monkeypatch.setattr(
+        "DeepBruce_AI.services.orchestrator."
         "stream_rag_answer",
         fake_stream_rag_answer,
     )
@@ -152,21 +191,24 @@ def test_research_route_uses_rag(
     )
 
     assert events[0]["type"] == "route"
-    assert (
-        events[0]["route"]
-        == "research"
-    )
+    assert events[0]["route"] == "research"
 
-    assert (
-        events[1]["type"]
-        == "sources"
-    )
+    assert events[1]["type"] == "sources"
 
     assert events[2] == {
         "type": "token",
         "content": "Alan Turing",
     }
 
+    assert (
+        received["message"]
+        == "Quem foi Alan Turing?"
+    )
+
+    assert (
+        received["search_query"]
+        == "Alan Turing"
+    )
 
 def test_ambiguous_route_requests_clarification():
     orchestrator = make_orchestrator(

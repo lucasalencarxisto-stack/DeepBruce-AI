@@ -56,6 +56,17 @@ def _normalize(text: str) -> str:
         text,
     )
 
+    text = re.sub(
+        r"^[¿¡]+",
+        "",
+        text,
+    )
+
+    return re.sub(
+        r"\s+",
+        " ",
+        text,
+    )
 
 class RuleBasedIntentClassifier:
     """
@@ -89,6 +100,19 @@ class RuleBasedIntentClassifier:
             r"^meu nome e\b",
             r"^eu me chamo\b",
             r"^voce gosta\b",
+
+            # English
+            r"^(hello|hi|hey)\b",
+            r"^how are you\??$",
+            r"^who are you\??$",
+            r"^my name is\b",
+
+            # Español
+            r"^(hola|buenas)\b",
+            r"^como estas\??$",
+            r"^quien eres\??$",
+            r"^me llamo\b",
+            r"^mi nombre es\b",
         )
 
         if self._matches_any(
@@ -142,6 +166,19 @@ class RuleBasedIntentClassifier:
             r"^como aconteceu\b",
             r"^como comecou\b",
             r"^explique\b",
+
+            # English
+            r"^(hello|hi|hey)\b",
+            r"^how are you\??$",
+            r"^who are you\??$",
+            r"^my name is\b",
+
+            # Español
+            r"^(hola|buenas)\b",
+            r"^como estas\??$",
+            r"^quien eres\??$",
+            r"^me llamo\b",
+            r"^mi nombre es\b",
         )
 
         if self._matches_any(

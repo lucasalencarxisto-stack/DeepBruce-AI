@@ -7,7 +7,10 @@ from DeepBruce_AI.services import ollama
 from DeepBruce_AI.services.chunk import build_chunks
 from DeepBruce_AI.services.context import build_context
 from DeepBruce_AI.services.retriever import Retriever
-from DeepBruce_AI.services.wiki import fetch_wikipedia_candidates
+from DeepBruce_AI.services.wiki import (
+    fetch_wikipedia_candidates,
+    fetch_wikipedia_page,
+)
 
 
 class InMemoryStore:
@@ -46,6 +49,7 @@ def _build_source_id(
     """
     Gera um ID previsível para os chunks de uma página.
     """
+
     pageid = page.get("pageid")
 
     if pageid:
@@ -54,11 +58,14 @@ def _build_source_id(
     return f"wiki-page-{index}"
 
 
-def _normalize_text(text: str) -> str:
+def _normalize_text(
+    text: str,
+) -> str:
     """
     Normaliza texto para comparação entre pergunta
     e título da fonte.
     """
+
     text = unicodedata.normalize(
         "NFKD",
         text or "",
@@ -81,6 +88,7 @@ def _title_match_score(
     Mede quanto do título da página aparece
     na pergunta do usuário.
     """
+
     question_tokens = set(
         re.findall(
             r"\w+",
@@ -98,9 +106,15 @@ def _title_match_score(
     if not question_tokens or not title_tokens:
         return 0.0
 
-    matches = question_tokens & title_tokens
+    matches = (
+        question_tokens
+        & title_tokens
+    )
 
-    return len(matches) / len(title_tokens)
+    return (
+        len(matches)
+        / len(title_tokens)
+    )
 
 
 def _source_rank_score(
@@ -114,9 +128,16 @@ def _source_rank_score(
     rank 2 -> 0.5
     rank 3 -> 0.333...
     """
+
     try:
-        rank = int(search_rank)
-    except (TypeError, ValueError):
+        rank = int(
+            search_rank
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
         return 0.0
 
     if rank <= 0:
@@ -136,15 +157,25 @@ def _position_score(
     posição 1 -> 0.5
     posição 2 -> 0.333...
     """
+
     try:
-        position = int(position)
-    except (TypeError, ValueError):
+        position = int(
+            position
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
         return 0.0
 
     if position < 0:
         return 0.0
 
-    return 1.0 / (position + 1)
+    return (
+        1.0
+        / (position + 1)
+    )
 
 
 def _rerank_wikipedia_results(
@@ -161,7 +192,10 @@ def _rerank_wikipedia_results(
     - ranking original da Wikipedia;
     - posição do chunk dentro da página.
     """
-    reranked: List[Dict[str, Any]] = []
+
+    reranked: List[
+        Dict[str, Any]
+    ] = []
 
     for result in results:
         metadata = result.get(
@@ -170,20 +204,36 @@ def _rerank_wikipedia_results(
         )
 
         retriever_score = float(
-            result.get("score", 0.0)
+            result.get(
+                "score",
+                0.0,
+            )
         )
 
-        title_score = _title_match_score(
-            question,
-            metadata.get("title", ""),
+        title_score = (
+            _title_match_score(
+                question,
+                metadata.get(
+                    "title",
+                    "",
+                ),
+            )
         )
 
-        source_score = _source_rank_score(
-            metadata.get("search_rank")
+        source_score = (
+            _source_rank_score(
+                metadata.get(
+                    "search_rank"
+                )
+            )
         )
 
-        position_score = _position_score(
-            metadata.get("position")
+        position_score = (
+            _position_score(
+                metadata.get(
+                    "position"
+                )
+            )
         )
 
         rag_score = (
@@ -196,16 +246,28 @@ def _rerank_wikipedia_results(
         reranked.append(
             {
                 **result,
-                "retriever_score": retriever_score,
-                "title_match_score": title_score,
-                "source_rank_score": source_score,
-                "position_score": position_score,
-                "score": float(rag_score),
+                "retriever_score": (
+                    retriever_score
+                ),
+                "title_match_score": (
+                    title_score
+                ),
+                "source_rank_score": (
+                    source_score
+                ),
+                "position_score": (
+                    position_score
+                ),
+                "score": float(
+                    rag_score
+                ),
             }
         )
 
     reranked.sort(
-        key=lambda result: result["score"],
+        key=lambda result: (
+            result["score"]
+        ),
         reverse=True,
     )
 
@@ -215,6 +277,8 @@ def _rerank_wikipedia_results(
 def retrieve_wikipedia_context(
     question: str,
     *,
+    search_query: str | None = None,
+    resolved_title: str | None = None,
     lang: str = "pt",
     page_limit: int = 3,
     top_k: int = 5,
@@ -224,43 +288,85 @@ def retrieve_wikipedia_context(
     """
     Recuperação RAG orientada por fonte.
 
-    Cada página da Wikipedia é pesquisada separadamente
-    pelo Retriever antes do reranking global.
+    Quando uma entidade já foi resolvida,
+    recupera diretamente sua página.
+
+    Caso contrário, executa a descoberta
+    normal de candidatos na Wikipedia.
     """
-    question = (question or "").strip()
+
+    question = (
+        question or ""
+    ).strip()
 
     if not question:
         return []
 
-    pages = fetch_wikipedia_candidates(
-        question,
-        lang=lang,
-        limit=page_limit,
-    )
+    if resolved_title:
+        page = fetch_wikipedia_page(
+            resolved_title,
+            lang=lang,
+        )
+
+        if page.get("text"):
+            page[
+                "search_rank"
+            ] = 1
+
+            pages = [
+                page
+            ]
+
+        else:
+            pages = []
+
+    else:
+        wiki_query = (
+            search_query
+            or question
+        ).strip()
+
+        pages = (
+            fetch_wikipedia_candidates(
+                wiki_query,
+                lang=lang,
+                limit=page_limit,
+            )
+        )
 
     if not pages:
         return []
 
     store = InMemoryStore()
-    retriever = Retriever(store)
 
-    candidates: List[Dict[str, Any]] = []
+    retriever = Retriever(
+        store
+    )
+
+    candidates: List[
+        Dict[str, Any]
+    ] = []
 
     for index, page in enumerate(
         pages,
         start=1,
     ):
         text = (
-            page.get("text", "")
+            page.get(
+                "text",
+                "",
+            )
             or ""
         ).strip()
 
         if not text:
             continue
 
-        source_id = _build_source_id(
-            page,
-            index,
+        source_id = (
+            _build_source_id(
+                page,
+                index,
+            )
         )
 
         chunks = build_chunks(
@@ -276,18 +382,27 @@ def retrieve_wikipedia_context(
                 "",
             ),
             max_chars=max_chars,
-            overlap_sentences=overlap_sentences,
+            overlap_sentences=(
+                overlap_sentences
+            ),
             metadata={
-                "pageid": page.get("pageid"),
-                "search_rank": page.get(
-                    "search_rank"
+                "pageid": (
+                    page.get(
+                        "pageid"
+                    )
+                ),
+                "search_rank": (
+                    page.get(
+                        "search_rank"
+                    )
                 ),
             },
         )
 
         records = [
             chunk.to_record()
-            for chunk in chunks
+            for chunk
+            in chunks
         ]
 
         if not records:
@@ -302,10 +417,12 @@ def retrieve_wikipedia_context(
             records,
         )
 
-        page_results = retriever.search(
-            namespace,
-            question,
-            top_k=top_k,
+        page_results = (
+            retriever.search(
+                namespace,
+                question,
+                top_k=top_k,
+            )
         )
 
         candidates.extend(
@@ -315,10 +432,12 @@ def retrieve_wikipedia_context(
     if not candidates:
         return []
 
-    return _rerank_wikipedia_results(
-        question,
-        candidates,
-        top_k=top_k,
+    return (
+        _rerank_wikipedia_results(
+            question,
+            candidates,
+            top_k=top_k,
+        )
     )
 
 
@@ -326,6 +445,8 @@ def stream_rag_answer(
     question: str,
     settings: Settings,
     *,
+    search_query: str | None = None,
+    resolved_title: str | None = None,
     lang: str = "pt",
     page_limit: int = 3,
     top_k: int = 5,
@@ -342,22 +463,37 @@ def stream_rag_answer(
         -> Context Builder
         -> Ollama
     """
-    question = (question or "").strip()
+
+    question = (
+        question or ""
+    ).strip()
 
     if not question:
         return
 
-    results = retrieve_wikipedia_context(
-        question,
-        lang=lang,
-        page_limit=page_limit,
-        top_k=top_k,
+    results = (
+        retrieve_wikipedia_context(
+            question,
+            search_query=(
+                search_query
+            ),
+            resolved_title=(
+                resolved_title
+            ),
+            lang=lang,
+            page_limit=page_limit,
+            top_k=top_k,
+        )
     )
 
-    context, sources = build_context(
-        results,
-        max_chars=max_context_chars,
-        max_chunks=top_k,
+    context, sources = (
+        build_context(
+            results,
+            max_chars=(
+                max_context_chars
+            ),
+            max_chunks=top_k,
+        )
     )
 
     if not context:
@@ -371,10 +507,14 @@ def stream_rag_answer(
         "sources": sources,
     }
 
-    for token in ollama.stream_chat_with_context(
-        question,
-        context,
-        settings,
+    for token in (
+        ollama
+        .stream_chat_with_context(
+            question,
+            context,
+            settings,
+            lang=lang,
+        )
     ):
         yield {
             "type": "token",
