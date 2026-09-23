@@ -33,10 +33,12 @@ class FakeClassifier:
 def make_orchestrator(
     intent: Intent,
     confidence: float = 0.95,
+    reason: str = "test",
 ):
     classifier = FakeClassifier(
         intent=intent,
         confidence=confidence,
+        reason=reason,
     )
 
     router = MessageRouter(
@@ -46,6 +48,44 @@ def make_orchestrator(
     return DeepBruceOrchestrator(
         router=router,
     )
+
+
+def test_project_identity_bypasses_ollama(
+    monkeypatch,
+):
+    orchestrator = make_orchestrator(
+        Intent.CHAT,
+        confidence=1.0,
+        reason="project_identity",
+    )
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError(
+            "Ollama nao deve responder perguntas de autoria"
+        )
+
+    monkeypatch.setattr(
+        "DeepBruce_AI.services.orchestrator."
+        "ollama.stream_chat",
+        fail_if_called,
+    )
+
+    events = list(
+        orchestrator.stream_message(
+            "Quem te criou?",
+            settings=None,
+            conversation_id="identity-conversation",
+        )
+    )
+
+    assert events[0]["type"] == "route"
+    assert events[0]["route"] == "chat"
+    assert events[0]["reason"] == "project_identity"
+
+    assert events[1]["type"] == "token"
+    assert "Lucas Alencar" in events[1]["content"]
+    assert "Code Shield" in events[1]["content"]
+    assert len(events) == 2
 
 
 def test_empty_message_returns_error():
