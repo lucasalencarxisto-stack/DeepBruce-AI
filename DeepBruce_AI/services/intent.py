@@ -89,6 +89,68 @@ class RuleBasedIntentClassifier:
                 reason="empty_message",
             )
 
+        # Perguntas sobre a autoria do próprio DeepBruce
+        # precisam ser respondidas pela aplicação, não pela
+        # identidade-base do modelo executado pelo Ollama.
+        project_identity_patterns = (
+            r"\bquem te (criou|desenvolveu|programou|fez)\b",
+            r"\bquem (criou|desenvolveu|programou|fez) voce\b",
+            (
+                r"\b(quem|que) (e|foi) (o |a )?(seu|sua) "
+                r"(criador|criadora|desenvolvedor|desenvolvedora|"
+                r"programador|programadora|autor|autora)\b"
+            ),
+            (
+                r"\bquem (e|foi) (o |a )?"
+                r"(criador|criadora|desenvolvedor|desenvolvedora|"
+                r"programador|programadora|autor|autora) "
+                r"(do |da )?(deep ?bruce|bruce)\b"
+            ),
+            (
+                r"\bquem (criou|desenvolveu|programou|fez) "
+                r"(o )?(deep ?bruce|bruce)\b"
+            ),
+            (
+                r"\bqual (e )?(o )?nome d(o|a) (seu|sua) "
+                r"(criador|criadora|desenvolvedor|desenvolvedora|"
+                r"programador|programadora|autor|autora)\b"
+            ),
+            r"\bquem (esta|ta) por tras d(o|a) (deep ?bruce|bruce)\b",
+
+            # English
+            r"\bwho (created|developed|built|made|programmed) you\b",
+            (
+                r"\bwho (is|was) your "
+                r"(creator|developer|programmer|author)\b"
+            ),
+            (
+                r"\bwho (created|developed|built|made|programmed) "
+                r"(the )?(deep ?bruce|bruce)\b"
+            ),
+            r"\bwho is behind (the )?(deep ?bruce|bruce)\b",
+
+            # Espanol
+            r"\bquien te (creo|desarrollo|programo|hizo)\b",
+            (
+                r"\bquien (es|fue) tu "
+                r"(creador|desarrollador|programador|autor)\b"
+            ),
+            (
+                r"\bquien (creo|desarrollo|programo|hizo) "
+                r"(a )?(deep ?bruce|bruce)\b"
+            ),
+        )
+
+        if self._matches_any(
+            text,
+            project_identity_patterns,
+        ):
+            return IntentResult(
+                intent=Intent.CHAT,
+                confidence=1.0,
+                reason="project_identity",
+            )
+
         # Conversa social tem prioridade sobre
         # palavras interrogativas isoladas.
         casual_patterns = (
