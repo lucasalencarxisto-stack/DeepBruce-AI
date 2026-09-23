@@ -98,6 +98,7 @@ def search_wikipedia(
     *,
     lang: str = "pt",
     limit: int = 3,
+    _allow_suggestion: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Pesquisa páginas da Wikipedia a partir de uma
@@ -139,6 +140,22 @@ def search_wikipedia(
         .get("query", {})
         .get("search", [])
     )
+
+    if not hits and _allow_suggestion:
+        suggestion = (
+            payload
+            .get("query", {})
+            .get("searchinfo", {})
+            .get("suggestion")
+        )
+
+        if suggestion and suggestion.strip().lower() != query.lower():
+            return search_wikipedia(
+                suggestion,
+                lang=lang,
+                limit=limit,
+                _allow_suggestion=False,
+            )
 
     results: List[Dict[str, Any]] = []
 

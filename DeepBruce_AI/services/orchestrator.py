@@ -207,7 +207,6 @@ class DeepBruceOrchestrator:
             yield from stream_rag_answer(
                 message,
                 settings,
-                resolved_title=resolution.resolved_title,
                 lang=language,
             )
 
@@ -245,9 +244,10 @@ class DeepBruceOrchestrator:
             yield from stream_rag_answer(
                 message,
                 settings,
-                search_query=(
+                resolved_title=(
                     resolution.resolved_title
                 ),
+                lang=language,
             )
             return
 
@@ -326,12 +326,26 @@ class DeepBruceOrchestrator:
             in resolution.candidates[:5]
         ]
 
+        display_entity = (
+            resolution.entity_text[:1].upper()
+            + resolution.entity_text[1:]
+        )
+
+        if options:
+            clarification_message = (
+                f"Você se refere a qual "
+                f"{display_entity}?"
+            )
+        else:
+            clarification_message = (
+                f"Você pode informar o nome completo "
+                f"de quem você quer dizer com "
+                f"'{display_entity}'?"
+            )
+
         yield {
             "type": "clarification",
-            "message": (
-                "Encontrei mais de uma entidade "
-                "possível. Qual delas você quis dizer?"
-            ),
+            "message": clarification_message,
             "original_message": message,
             "confidence": resolution.confidence,
             "attempt": (

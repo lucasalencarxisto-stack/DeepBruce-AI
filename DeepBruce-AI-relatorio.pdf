@@ -1,0 +1,327 @@
+%PDF-1.4
+%‚„œ”
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2790 >>
+stream
+BT
+/F1 10 Tf
+50 790 Td
+14 TL
+(DEEPBRUCE-AI) Tj
+0 -14 Td
+(Relatorio tecnico de evolucao do projeto) Tj
+0 -14 Td
+(Data: 22 de setembro de 2026) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(1. VISAO GERAL) Tj
+0 -14 Td
+(O projeto foi evoluido mantendo a proposta original: um assistente local com) Tj
+0 -14 Td
+(personalidade de mago, API Flask com streaming SSE, Ollama, RAG baseado em) Tj
+0 -14 Td
+(Wikipedia e interface React visualmente cosmica.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(2. FRONTEND REACT) Tj
+0 -14 Td
+(Identidade visual:) Tj
+0 -14 Td
+(- template.png passou a ser usado como fundo do hero.) Tj
+0 -14 Td
+(- Logotipo.png passou a ser usado no topo, rodape e V2 Vision.) Tj
+0 -14 Td
+(- main_icone.png ficou na apresentacao Meet Bruce.) Tj
+0 -14 Td
+(- chat_avatar.png foi criado para o avatar pequeno das respostas.) Tj
+0 -14 Td
+(- ferramentas_icones.png foi inserido na secao de arquitetura.) Tj
+0 -14 Td
+(- favicon.png foi registrado no index.html.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Experiencia do chat:) Tj
+0 -14 Td
+(- O avatar do DeepBruce aparece ao lado das mensagens do assistente.) Tj
+0 -14 Td
+(- O botao New chat recebeu estilo proprio.) Tj
+0 -14 Td
+(- Os controles superiores deixaram de usar a aparencia nativa do navegador.) Tj
+0 -14 Td
+(- O quadro do chat recebeu altura fixa e rolagem interna.) Tj
+0 -14 Td
+(- O quadro nao cresce conforme a resposta aumenta.) Tj
+0 -14 Td
+(- O scroll acompanha a mensagem mais recente.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Temas e ambiente:) Tj
+0 -14 Td
+(- O light mode recebeu cores, fundos, cards e inputs proprios.) Tj
+0 -14 Td
+(- O avatar nao sofre mais efeito de mistura que o deixava esbranqui?ado.) Tj
+0 -14 Td
+(- O logo real passou a ser usado no lugar do logo textual.) Tj
+0 -14 Td
+(- Duas camadas de estrelas foram criadas com CSS puro.) Tj
+0 -14 Td
+(- As estrelas usam gradientes radiais e movimento sutil.) Tj
+0 -14 Td
+(- A animacao respeita prefers-reduced-motion.) Tj
+0 -14 Td
+(- A intensidade das estrelas e reduzida no light mode.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(3. BACKEND FLASK) Tj
+0 -14 Td
+(Fluxo RAG:) Tj
+0 -14 Td
+(- Corrigido o uso de resolution antes de sua inicializacao.) Tj
+0 -14 Td
+(- Pesquisa geral chama o RAG diretamente.) Tj
+0 -14 Td
+(- Entidade resolvida usa resolved_title.) Tj
+0 -14 Td
+(- O idioma detectado continua sendo preservado.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Respostas mais objetivas:) Tj
+0 -14 Td
+(- page_limit reduzido de 3 para 2.) Tj
+0 -14 Td
+(- top_k reduzido de 5 para 3.) Tj
+0 -14 Td
+(- Contexto reduzido de 10000 para 5000 caracteres.) Tj
+0 -14 Td
+(- num_predict do Ollama reduzido de 768 para 384 tokens.) Tj
+0 -14 Td
+(- O prompt orienta resumos introdutorios de 2 a 4 paragrafos curtos.) Tj
+0 -14 Td
+(- O modelo nao deve reproduzir uma biografia inteira.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(4. PERSONALIDADE DO DEEPBRUCE) Tj
+0 -14 Td
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 2732 >>
+stream
+BT
+/F1 10 Tf
+50 790 Td
+14 TL
+(Foi criada uma personalidade compartilhada para chat comum e RAG.) Tj
+0 -14 Td
+(O DeepBruce deve ser:) Tj
+0 -14 Td
+(- Enigmatico, misterioso, sereno e perspicaz.) Tj
+0 -14 Td
+(- Acolhedor, elegante e levemente mistico.) Tj
+0 -14 Td
+(- Capaz de usar pequenas metaforas sobre estrelas, mapas e tomos.) Tj
+0 -14 Td
+(- Preciso e honesto ao apresentar fatos.) Tj
+0 -14 Td
+(- Sutil, sem transformar toda resposta em teatro.) Tj
+0 -14 Td
+(- Direto antes de aprofundar a parte narrativa.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Objetivo da experiencia: o usuario deve sentir que esta conversando com um) Tj
+0 -14 Td
+(mago de verdade, sem perder clareza, utilidade ou precisao.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(5. ENTITY RESOLUTION E AMBIGUIDADE) Tj
+0 -14 Td
+(O fluxo foi ajustado para nao adivinhar entidades incompletas.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Exemplo:) Tj
+0 -14 Td
+(Quem e o Justin?) Tj
+0 -14 Td
+(-> Voce se refere a qual Justin?) Tj
+0 -14 Td
+(-> Justin Bieber) Tj
+0 -14 Td
+(-> Justin Timberlake) Tj
+0 -14 Td
+(-> Justin Trudeau) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Perguntas com nome completo, como Quem foi Alan Turing?, continuam podendo) Tj
+0 -14 Td
+(ser resolvidas automaticamente.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Erros de digitacao como Justem tentam usar sugestoes da Wikipedia antes da) Tj
+0 -14 Td
+(decisao final. Se houver candidatos, o sistema pede esclarecimento. Nomes) Tj
+0 -14 Td
+(curtos sem candidatos tambem pedem nome completo, em vez de cair diretamente) Tj
+0 -14 Td
+(em entity_not_found.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(6. API E CONFIGURACAO) Tj
+0 -14 Td
+(- MAX_MESSAGE_LENGTH foi adicionado com padrao de 4000 caracteres.) Tj
+0 -14 Td
+(- O limite e aplicado em /api/message e /api/rag/chat.) Tj
+0 -14 Td
+(- Mensagens acima do limite retornam HTTP 400.) Tj
+0 -14 Td
+(- Autenticacao obrigatoria nao foi adicionada nesta versao.) Tj
+0 -14 Td
+(- Redis e persistencia compartilhada ficaram reservados para a v2.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(O ambiente local usa OLLAMA_HOST=http://127.0.0.1:11434.) Tj
+0 -14 Td
+(O Docker Compose usa http://ollama:11434 dentro da rede dos containers.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(7. DOCKER E OPERACAO) Tj
+0 -14 Td
+(- requirements-rag.txt inclui requirements.txt via -r.) Tj
+0 -14 Td
+(- nltk foi adicionado e a duplicacao foi removida.) Tj
+0 -14 Td
+(- O Dockerfile instala o conjunto completo do RAG.) Tj
+0 -14 Td
+(- Gunicorn foi reduzido para um worker na v1.5.) Tj
+0 -14 Td
+(- Um worker preserva a consistencia do ConversationManager em memoria.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(8. TESTES E CI) Tj
+0 -14 Td
+(Foram corrigidos testes de streaming do Ollama e do orchestrator.) Tj
+0 -14 Td
+(Foram adicionados testes para:) Tj
+0 -14 Td
+(- Pesquisa geral sem Entity Resolver.) Tj
+0 -14 Td
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 1485 >>
+stream
+BT
+/F1 10 Tf
+50 790 Td
+14 TL
+(- Nome curto ambiguo com varios candidatos.) Tj
+0 -14 Td
+(- Nome curto ambiguo com um candidato.) Tj
+0 -14 Td
+(- Nome curto sem resultado.) Tj
+0 -14 Td
+(- Limite de tamanho de mensagens.) Tj
+0 -14 Td
+(- Limite num_predict do Ollama.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(A CI agora executa:) Tj
+0 -14 Td
+(- Testes Python com pytest.) Tj
+0 -14 Td
+(- npm ci.) Tj
+0 -14 Td
+(- npm run lint.) Tj
+0 -14 Td
+(- npm run build.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(9. DOCUMENTACAO) Tj
+0 -14 Td
+(O README foi completado com setup Python, .env, Ollama, frontend React,) Tj
+0 -14 Td
+(testes, Docker, arquitetura v1.5 e o aviso de que V2 Vision e roadmap/concept.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(10. LIMITES ATUAIS E PROXIMOS PASSOS) Tj
+0 -14 Td
+(- O Ollama precisa estar ativo e acessivel na porta 11434.) Tj
+0 -14 Td
+(- A primeira resposta pode demorar enquanto o modelo carrega.) Tj
+0 -14 Td
+(- O ConversationManager ainda e mantido em memoria.) Tj
+0 -14 Td
+(- Redis ou banco compartilhado ficam para a v2.) Tj
+0 -14 Td
+(- A CI e o local sao os caminhos recomendados para validacao completa.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(CONCLUSAO) Tj
+0 -14 Td
+(O DeepBruce-AI agora possui uma experiencia visual integrada com as artes do) Tj
+0 -14 Td
+(projeto, chat estavel, identidade de mago, RAG mais conciso, resolucao de) Tj
+0 -14 Td
+(entidades mais segura, limites de entrada, Docker alinhado e CI cobrindo) Tj
+0 -14 Td
+(backend e frontend, sem abandonar a ideia original da v1.5.) Tj
+0 -14 Td
+ET
+endstream
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000015 00000 n 
+0000000141 00000 n 
+0000002983 00000 n 
+0000003109 00000 n 
+0000005893 00000 n 
+0000006019 00000 n 
+0000007556 00000 n 
+0000007625 00000 n 
+0000007695 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+7744
+%%EOF

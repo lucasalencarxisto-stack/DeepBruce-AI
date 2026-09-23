@@ -72,6 +72,19 @@ def message():
             ),
         }, 400
 
+    max_message_length = current_app.config[
+        "SETTINGS"
+    ].max_message_length
+
+    if len(user_message) > max_message_length:
+        return {
+            "error": "message_too_long",
+            "message": (
+                "A mensagem excede o limite de "
+                f"{max_message_length} caracteres."
+            ),
+        }, 400
+
     raw_conversation_id = payload.get(
         "conversation_id"
     )
@@ -190,3 +203,30 @@ def message():
     ] = "no"
 
     return response
+
+@api_message_bp.delete(
+    "/conversation/<conversation_id>"
+)
+def reset_conversation(
+    conversation_id: str,
+):
+    conversation_id = (
+        conversation_id or ""
+    ).strip()
+
+    if not conversation_id:
+        return {
+            "error": "invalid_conversation_id",
+            "message": (
+                "conversation_id é obrigatório."
+            ),
+        }, 400
+
+    orchestrator.conversations.reset(
+        conversation_id
+    )
+
+    return {
+        "status": "reset",
+        "conversation_id": conversation_id,
+    }, 200

@@ -194,3 +194,27 @@ function processSseEvent(
       break;
   }
 }
+
+export async function resetConversation(
+    conversationId
+  ) {
+    if (!conversationId) {
+      return;
+    }
+
+    const response = await fetch(
+      `/api/conversation/${
+        encodeURIComponent(
+          conversationId
+        )
+      }`,
+      {
+      method: "DELETE",
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        "Não é possível reiniciar a conversa"
+      );
+    }
+  }

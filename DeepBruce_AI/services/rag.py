@@ -448,9 +448,9 @@ def stream_rag_answer(
     search_query: str | None = None,
     resolved_title: str | None = None,
     lang: str = "pt",
-    page_limit: int = 3,
-    top_k: int = 5,
-    max_context_chars: int = 10_000,
+    page_limit: int = 2,
+    top_k: int = 3,
+    max_context_chars: int = 5_000,
 ):
     """
     Executa o pipeline RAG completo:

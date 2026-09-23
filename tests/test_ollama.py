@@ -32,6 +32,22 @@ def test_stream_chat_decodes_ollama_chunks(monkeypatch):
     assert list(stream_chat("teste", settings())) == ["Oi", "!"]
 
 
+def test_stream_chat_uses_concise_generation_limit(monkeypatch):
+    response = MagicMock()
+    response.status_code = 200
+    response.iter_lines.return_value = [
+        b'{"message":{"content":"Oi"},"done":true}',
+    ]
+    response.__enter__.return_value = response
+    response.__exit__.return_value = None
+    request = MagicMock(return_value=response)
+    monkeypatch.setattr(requests, "post", request)
+
+    list(stream_chat("teste", settings()))
+
+    assert request.call_args.kwargs["json"]["options"]["num_predict"] == 384
+
+
 def test_stream_chat_maps_connection_error(monkeypatch):
     monkeypatch.setattr(requests, "post", MagicMock(side_effect=requests.ConnectionError))
 
