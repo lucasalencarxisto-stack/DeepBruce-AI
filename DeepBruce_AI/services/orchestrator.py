@@ -31,6 +31,31 @@ from DeepBruce_AI.services.language import (
     detect_language,
 )
 
+
+PROJECT_IDENTITY_RESPONSES = {
+    "pt": (
+        "Fui criado e desenvolvido por Lucas Alencar, fundador da "
+        "Code Shield. Meu núcleo de linguagem usa o modelo Gemma, "
+        "desenvolvido pelo Google e executado por meio do Ollama. "
+        "Minha personalidade, interface, arquitetura, sistema RAG e "
+        "integrações pertencem ao projeto DeepBruce AI."
+    ),
+    "en": (
+        "I was created and developed by Lucas Alencar, founder of "
+        "Code Shield. My language core uses Gemma, developed by Google "
+        "and run through Ollama. My personality, interface, architecture, "
+        "RAG system, and integrations belong to the DeepBruce AI project."
+    ),
+    "es": (
+        "Fui creado y desarrollado por Lucas Alencar, fundador de "
+        "Code Shield. Mi nucleo de lenguaje utiliza Gemma, desarrollado "
+        "por Google y ejecutado mediante Ollama. Mi personalidad, interfaz, "
+        "arquitectura, sistema RAG e integraciones pertenecen al proyecto "
+        "DeepBruce AI."
+    ),
+}
+
+
 class DeepBruceOrchestrator:
     """
     Coordena os diferentes núcleos do DeepBruce.
@@ -127,6 +152,16 @@ class DeepBruceOrchestrator:
             self.conversations.resolve_clarification(
                 conversation_id
             )
+
+        if decision.reason == "project_identity":
+            yield {
+                "type": "token",
+                "content": PROJECT_IDENTITY_RESPONSES.get(
+                    language,
+                    PROJECT_IDENTITY_RESPONSES["pt"],
+                ),
+            }
+            return
 
         if decision.route == "chat":
             yield from self._stream_chat(
