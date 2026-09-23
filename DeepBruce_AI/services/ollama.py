@@ -44,10 +44,17 @@ def _stream_messages(
             "num_predict": 384,
         },
     }
+    headers = {}
+
+    if settings.ollama_api_key:
+        headers["Authorization"] = (
+            f"Bearer {settings.ollama_api_key}"
+        )
 
     try:
         with requests.post(
             url,
+            headers=headers,
             json=payload,
             stream=True,
             timeout=(
@@ -121,7 +128,7 @@ def stream_chat(
     settings = settings or Settings.from_env()
 
     language_names = {
-        "pt": "português basileiro",
+        "pt": "português brasileiro",
         "en": "English",
         "es": "español",
     }

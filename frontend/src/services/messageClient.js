@@ -1,3 +1,7 @@
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL
+    ?.replace(/\/$/, "") || "";
+
 export async function streamMessage(
   message,
   {
@@ -19,7 +23,9 @@ export async function streamMessage(
     payload.conversation_id = conversationId;
   }
 
-  const response = await fetch("/api/message", {
+  const response = await fetch(
+  `${API_BASE_URL}/api/message`,
+  {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -53,57 +59,72 @@ export async function streamMessage(
   const decoder = new TextDecoder("utf-8");
 
   let buffer = "";
+  let receivedDone = false;
 
-  while (true) {
-    const {
-      value,
-      done,
-    } = await reader.read();
+  const handlers = {
+    onRoute,
+    onClarification,
+    onSources,
+    onToken,
+    onFallback,
+    onDone,
+    onError,
+  };
 
-    if (done) {
-      break;
-    }
+  try {
+    while (true) {
+      const {
+        value,
+        done,
+      } = await reader.read();
 
-    buffer += decoder.decode(
-      value,
-      {
-        stream: true,
+      if (done) {
+        break;
       }
-    );
 
-    const events = buffer.split("\n\n");
-
-    buffer = events.pop() ?? "";
-
-    for (const rawEvent of events) {
-      processSseEvent(
-        rawEvent,
+      buffer += decoder.decode(
+        value,
         {
-          onRoute,
-          onClarification,
-          onSources,
-          onToken,
-          onFallback,
-          onDone,
-          onError,
+          stream: true,
         }
       );
-    }
-  }
 
-  if (buffer.trim()) {
-    processSseEvent(
-      buffer,
-      {
-        onRoute,
-        onClarification,
-        onSources,
-        onToken,
-        onFallback,
-        onDone,
-        onError,
+      const events = buffer.split("\n\n");
+
+      buffer = events.pop() ?? "";
+
+      for (const rawEvent of events) {
+        const eventName = processSseEvent(
+          rawEvent,
+          handlers
+        );
+
+        if (eventName === "done") {
+          receivedDone = true;
+        }
       }
-    );
+    }
+
+    buffer += decoder.decode();
+
+    if (buffer.trim()) {
+      const eventName = processSseEvent(
+        buffer,
+        handlers
+      );
+
+      if (eventName === "done") {
+        receivedDone = true;
+      }
+    }
+
+    if (!receivedDone) {
+      throw new Error(
+        "A conexão com o DeepBruce foi encerrada antes da conclusão da resposta."
+      );
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -137,7 +158,7 @@ function processSseEvent(
   }
 
   if (!eventName) {
-    return;
+    return null;
   }
 
   let data = {};
@@ -193,6 +214,8 @@ function processSseEvent(
     default:
       break;
   }
+
+  return eventName;
 }
 
 export async function resetConversation(
@@ -203,11 +226,11 @@ export async function resetConversation(
     }
 
     const response = await fetch(
-      `/api/conversation/${
-        encodeURIComponent(
-          conversationId
-        )
-      }`,
+  `${API_BASE_URL}/api/conversation/${
+    encodeURIComponent(
+      conversationId
+    )
+  }`,
       {
       method: "DELETE",
       }

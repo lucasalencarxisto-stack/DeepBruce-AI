@@ -39,10 +39,15 @@ class Settings:
     oqs_namespace: str
     cors_origins: str = ""
     max_message_length: int = 4_000
+    ollama_api_key: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
+            ollama_api_key=os.getenv(
+                "OLLAMA_API_KEY",
+                "",
+            ),
             ollama_host=os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/"),
             ollama_model=os.getenv("OLLAMA_MODEL", "gemma3:1b"),
             ollama_connect_timeout=_positive_float("OLLAMA_CONNECT_TIMEOUT", 5),
