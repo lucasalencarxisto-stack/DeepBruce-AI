@@ -4,4 +4,4 @@ requests
 python-dotenv
 gunicorn
 gevent
-packinging
+packaging
