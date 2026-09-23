@@ -64,3 +64,17 @@ def test_rag_chat_rejects_empty_message():
     )
 
     assert response.status_code == 400
+
+
+def test_rag_chat_rejects_oversized_message():
+    client = app.test_client()
+
+    response = client.post(
+        "/api/rag/chat",
+        json={
+            "message": "x" * 4_001,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"]["code"] == "message_too_long"

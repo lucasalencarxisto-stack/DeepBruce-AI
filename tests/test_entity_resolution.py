@@ -70,6 +70,37 @@ def test_single_name_is_ambiguous():
     ) >= 2
 
 
+def test_single_name_stays_ambiguous_with_one_search_result():
+    result = resolve_entity(
+        "Quem é o Justin?",
+        [
+            EntityCandidate(
+                title="Justin Bieber",
+            )
+        ],
+    )
+
+    assert (
+        result.status
+        == EntityStatus.AMBIGUOUS
+    )
+
+    assert (
+        result.resolved_title
+        is None
+    )
+
+
+def test_single_name_without_search_result_requests_clarification():
+    result = resolve_entity(
+        "Quem é o Justem?",
+        [],
+    )
+
+    assert result.status == EntityStatus.AMBIGUOUS
+    assert result.entity_text == "justem"
+
+
 def test_resolved_entity_has_confidence():
     result = resolve_entity(
         "Justin Bieber",

@@ -51,6 +51,21 @@ def rag_chat():
 
     message = message.strip()
 
+    max_message_length = current_app.config[
+        "SETTINGS"
+    ].max_message_length
+
+    if len(message) > max_message_length:
+        return {
+            "error": {
+                "code": "message_too_long",
+                "message": (
+                    "A mensagem excede o limite de "
+                    f"{max_message_length} caracteres."
+                ),
+            }
+        }, 400
+
     def generate():
         try:
             for item in stream_rag_answer(

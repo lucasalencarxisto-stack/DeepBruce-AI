@@ -12,7 +12,7 @@ services:
     environment:
       - FLASK_ENV=development
       - OQS_NAMESPACE=${OQS_NAMESPACE:-default}
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
     volumes:
       - ./:/app
@@ -31,7 +31,7 @@ services:
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - OQS_NAMESPACE=${OQS_NAMESPACE:-default}
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
     depends_on:
       - ollama

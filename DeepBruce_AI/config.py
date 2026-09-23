@@ -38,6 +38,7 @@ class Settings:
     port: int
     oqs_namespace: str
     cors_origins: str = ""
+    max_message_length: int = 4_000
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -49,4 +50,8 @@ class Settings:
             port=_positive_int("PORT", 8000),
             oqs_namespace=os.getenv("OQS_NAMESPACE", "default"),
             cors_origins=os.getenv("CORS_ORIGINS", ""),
+            max_message_length=_positive_int(
+                "MAX_MESSAGE_LENGTH",
+                4_000,
+            ),
         )

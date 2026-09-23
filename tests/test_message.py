@@ -25,6 +25,20 @@ def test_empty_message_returns_400(
     assert response.status_code == 400
 
 
+def test_message_rejects_oversized_message(
+    client,
+):
+    response = client.post(
+        "/api/message",
+        json={
+            "message": "x" * 4_001,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json["error"] == "message_too_long"
+
+
 def test_chat_message_streams_sse(
     client,
     monkeypatch,

@@ -193,7 +193,7 @@ def resolve_entity(
             entity_text="",
         )
 
-    scored_candidates = [
+    ordered_candidates = [
         EntityCandidate(
             title=candidate.title,
             url=candidate.url,
@@ -206,7 +206,8 @@ def resolve_entity(
         if candidate.title
     ]
 
-    scored_candidates.sort(
+    scored_candidates = sorted(
+        ordered_candidates,
         key=lambda candidate: (
             candidate.score
         ),
@@ -214,6 +215,14 @@ def resolve_entity(
     )
 
     if not scored_candidates:
+        if len(entity_tokens := entity_text.split()) == 1:
+            return EntityResolutionResult(
+                status=EntityStatus.AMBIGUOUS,
+                query=message,
+                entity_text=entity_text,
+                candidates=[],
+            )
+
         return EntityResolutionResult(
             status=EntityStatus.NOT_FOUND,
             query=message,
@@ -250,7 +259,7 @@ def resolve_entity(
         matching = [
             candidate
             for candidate
-            in scored_candidates
+            in ordered_candidates
             if token
             in _normalize(
                 candidate.title
@@ -264,6 +273,15 @@ def resolve_entity(
                 entity_text=entity_text,
                 confidence=top.score,
                 candidates=matching[:5],
+            )
+
+        if top.score >= 0.50:
+            return EntityResolutionResult(
+                status=EntityStatus.AMBIGUOUS,
+                query=message,
+                entity_text=entity_text,
+                confidence=top.score,
+                candidates=ordered_candidates[:5],
             )
 
     # Match forte com distância suficiente
@@ -288,8 +306,7 @@ def resolve_entity(
     # semelhantes significam ambiguidade.
     plausible = [
         candidate
-        for candidate
-        in scored_candidates
+        for candidate in ordered_candidates
         if candidate.score >= 0.50
     ]
 
@@ -319,5 +336,5 @@ def resolve_entity(
         query=message,
         entity_text=entity_text,
         confidence=top.score,
-        candidates=scored_candidates[:5],
+        candidates=ordered_candidates[:5],
     )

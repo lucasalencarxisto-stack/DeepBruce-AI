@@ -77,18 +77,18 @@ def test_chat_route_streams_ollama_tokens(
 
     received = {}
 
-def fake_stream_chat(
-    message,
-    settings,
-    *,
-    lang="pt",
-):
-    received["message"] = message
-    received["lang"] = lang
+    def fake_stream_chat(
+        message,
+        settings,
+        *,
+        lang="pt",
+    ):
+        received["message"] = message
+        received["lang"] = lang
 
-    yield "Olá"
-    yield "!"
-    
+        yield "Olá"
+        yield "!"
+
     monkeypatch.setattr(
         "DeepBruce_AI.services.orchestrator."
         "ollama.stream_chat",
@@ -150,9 +150,13 @@ def test_research_route_uses_rag(
         settings,
         *,
         search_query=None,
+        resolved_title=None,
+        lang="pt",
     ):
         received["message"] = message
         received["search_query"] = search_query
+        received["resolved_title"] = resolved_title
+        received["lang"] = lang
 
         yield {
             "type": "sources",
@@ -206,9 +210,111 @@ def test_research_route_uses_rag(
     )
 
     assert (
-        received["search_query"]
+        received["resolved_title"]
         == "Alan Turing"
     )
+
+    assert received["lang"] == "pt"
+
+
+def test_general_research_uses_rag_without_entity_resolution(
+    monkeypatch,
+):
+    orchestrator = make_orchestrator(
+        Intent.RESEARCH
+    )
+
+    received = {}
+
+    def fake_stream_rag_answer(
+        message,
+        settings,
+        *,
+        search_query=None,
+        resolved_title=None,
+        lang="pt",
+    ):
+        received["message"] = message
+        received["search_query"] = search_query
+        received["resolved_title"] = resolved_title
+        received["lang"] = lang
+
+        yield {
+            "type": "token",
+            "content": "Conhecimento",
+        }
+
+    monkeypatch.setattr(
+        "DeepBruce_AI.services.orchestrator."
+        "should_resolve_entity",
+        lambda message: False,
+    )
+
+    monkeypatch.setattr(
+        "DeepBruce_AI.services.orchestrator."
+        "stream_rag_answer",
+        fake_stream_rag_answer,
+    )
+
+    events = list(
+        orchestrator.stream_message(
+            "Como funciona a fotossíntese?",
+            settings=None,
+            conversation_id="test-general-research",
+        )
+    )
+
+    assert events[0]["route"] == "research"
+    assert events[1] == {
+        "type": "token",
+        "content": "Conhecimento",
+    }
+    assert received == {
+        "message": "Como funciona a fotossíntese?",
+        "search_query": None,
+        "resolved_title": None,
+        "lang": "pt",
+    }
+
+
+def test_ambiguous_entity_requests_specific_name(
+    monkeypatch,
+):
+    orchestrator = make_orchestrator(
+        Intent.RESEARCH
+    )
+
+    monkeypatch.setattr(
+        "DeepBruce_AI.services.orchestrator.search_wikipedia",
+        lambda *args, **kwargs: [
+            {"title": "Justin Bieber"},
+            {"title": "Justin Timberlake"},
+            {"title": "Justin Trudeau"},
+        ],
+    )
+
+    events = list(
+        orchestrator.stream_message(
+            "Quem é o Justin?",
+            settings=None,
+            conversation_id="test-ambiguous-justin",
+        )
+    )
+
+    clarification = events[1]
+
+    assert clarification["type"] == "clarification"
+    assert clarification["message"] == (
+        "Você se refere a qual Justin?"
+    )
+    assert [
+        option["label"]
+        for option in clarification["options"]
+    ] == [
+        "Justin Bieber",
+        "Justin Timberlake",
+        "Justin Trudeau",
+    ]
 
 def test_ambiguous_route_requests_clarification():
     orchestrator = make_orchestrator(

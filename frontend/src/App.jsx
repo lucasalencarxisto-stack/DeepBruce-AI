@@ -1,9 +1,19 @@
 import {
+  useEffect,
   useRef,
   useState,
 } from "react";
 
-import { streamMessage } from "./services/messageClient";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import {
+  resetConversation,
+  streamMessage,
+} from "./services/messageClient";
+
+import V2Vision from "./components/V2Vision";
+
 import "./App.css";
 
 
@@ -12,6 +22,15 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("Online");
+  const [theme, setTheme] = useState(
+    () =>
+      localStorage.getItem(
+        "deepbruce-theme"
+      ) || "dark"
+  );
+  const [, setActiveRoute] = useState(null);
+  const [listening, setListening] = useState(false);
+  const [activeView, setActiveView] = useState("assistant");
   const [error, setError] = useState("");
   const [
     conversationId,
@@ -19,7 +38,25 @@ function App() {
   ] = useState(null);
 
   const chatRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme =
+      theme;
+
+    localStorage.setItem(
+      "deepbruce-theme",
+      theme
+    );
+  }, [theme]);
 
   function scrollToChat() {
     chatRef.current?.scrollIntoView({
@@ -28,6 +65,90 @@ function App() {
     });
   }
 
+  async function handleResetChat() {
+    if (
+      message.length > 0
+      && !window.confirm(
+        "Apagar esta conversa e começar uma nova?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      if (conversationId) {
+        await resetConversation(
+          conversationId
+        );
+      }
+
+      window.speechSynthesis?.cancel();
+
+      recognitionRef.current?.stop();
+      recognitionRef.current?.stop();
+
+      setMessages([]);
+      setMessage("");
+      setConversationId(null);
+      setError("");
+      setStatus("Online");
+      setActiveRoute(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erro ao reiniciar a conversa."
+      );
+    }
+  }
+
+  function startListening() {
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition
+      || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      setError(
+        "O reconhecimento de voz não está disponível neste navegador."
+      );
+      return;
+    }
+
+    const recognition =
+      new SpeechRecognitionAPI();
+
+    recognition.lang =
+      navigator.language
+      || "pt-BR";
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setListening(true);
+      setStatus("Ouvindo...");
+    };
+
+    recognition.onresult = (
+      event
+    ) => {
+      const transcript =
+        event.results[0][0]
+          .transcript;
+
+      setMessage(transcript);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      setStatus("Online");
+    };
+
+    recognitionRef.current =
+      recognition;
+
+    recognition.start();
+  }
 
   async function sendMessage(
     text = message
@@ -77,6 +198,9 @@ function App() {
           conversationId,
 
           onRoute: (data) => {
+            setActiveRoute(
+              data.route
+            );
             if (
               data.conversation_id
             ) {
@@ -89,9 +213,9 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      route: data.route,
-                    }
+                    ...item,
+                    route: data.route,
+                  }
                   : item
               )
             );
@@ -130,9 +254,9 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      sources,
-                    }
+                    ...item,
+                    sources,
+                  }
                   : item
               )
             );
@@ -143,11 +267,11 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      content:
-                        item.content
-                        + token,
-                    }
+                    ...item,
+                    content:
+                      item.content
+                      + token,
+                  }
                   : item
               )
             );
@@ -160,12 +284,12 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      content:
-                        clarification
-                          .message,
-                      clarification,
-                    }
+                    ...item,
+                    content:
+                      clarification
+                        .message,
+                    clarification,
+                  }
                   : item
               )
             );
@@ -182,11 +306,11 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      content:
-                        fallback.message,
-                      fallback,
-                    }
+                    ...item,
+                    content:
+                      fallback.message,
+                    fallback,
+                  }
                   : item
               )
             );
@@ -207,11 +331,11 @@ function App() {
               current.map((item) =>
                 item.id === assistantId
                   ? {
-                      ...item,
-                      content:
-                        item.content
-                        || errorMessage,
-                    }
+                    ...item,
+                    content:
+                      item.content
+                      || errorMessage,
+                  }
                   : item
               )
             );
@@ -221,6 +345,7 @@ function App() {
 
           onDone: () => {
             setStatus("Online");
+            setActiveRoute(null);
           },
         }
       );
@@ -238,11 +363,11 @@ function App() {
         current.map((item) =>
           item.id === assistantId
             ? {
-                ...item,
-                content:
-                  item.content
-                  || errorMessage,
-              }
+              ...item,
+              content:
+                item.content
+                || errorMessage,
+            }
             : item
         )
       );
@@ -268,6 +393,29 @@ function App() {
     sendMessage(query);
   }
 
+  function toggleTheme() {
+    setTheme((current) =>
+      current === "dark"
+        ? "light"
+        : "dark"
+    );
+  }
+
+  if (activeView === "vision") {
+      return (
+      <V2Vision
+        theme={theme}
+        onToggleTheme={
+          toggleTheme
+        }
+        onBack={() =>
+          setActiveView(
+            "assistant"
+          )
+        }
+      />
+    );
+  }
 
   return (
     <div className="site-shell">
@@ -277,27 +425,41 @@ function App() {
         <div className="hero-overlay" />
 
         <nav className="topbar">
-          <div className="brand">
-            <span className="brand-star">
-              ✦
-            </span>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+          >
+            {theme === "dark"
+              ? "☀️"
+              : "🌙"}
+          </button>
 
-            <span>
-              DeepBruce
-              <strong>
-                AI
-              </strong>
-            </span>
+          <button
+            type="button"
+            className="Vision-tab"
+            onClick={() =>
+              setActiveView("vision")
+            }
+          >
+            V2 Vision
+          </button>
+
+          <div className="brand">
+            <img
+              className="brand-logo"
+              src="/assets/Logotipo.png"
+              alt="DeepBruce AI"
+            />
           </div>
 
           <div className="topbar-actions">
             <div className="status">
               <span
-                className={`status-dot ${
-                  status === "Erro"
-                    ? "error"
-                    : ""
-                }`}
+                className={`status-dot ${status === "Erro"
+                  ? "error"
+                  : ""
+                  }`}
               />
 
               <span>
@@ -409,7 +571,7 @@ function App() {
         <div className="experience-content">
           <div className="experience-image">
             <img
-              src="/assets/deepbruce-avatar.png"
+              src="/assets/main_icone.png"
               alt="DeepBruce, mago digital"
             />
           </div>
@@ -476,6 +638,16 @@ function App() {
 
         <div className="chat-frame">
           <header className="chat-header">
+            <button
+              type="button"
+              className="new-chat-button"
+              onClick={handleResetChat}
+              disabled={loading}
+            >
+              ↻ New chat
+            </button>
+            
+
             <div className="bruce-identity">
               <div className="bruce-orb">
                 ✦
@@ -494,11 +666,10 @@ function App() {
 
             <div className="chat-status">
               <span
-                className={`status-dot ${
-                  status === "Erro"
-                    ? "error"
-                    : ""
-                }`}
+                className={`status-dot ${status === "Erro"
+                  ? "error"
+                  : ""
+                  }`}
               />
 
               {status}
@@ -573,10 +744,17 @@ function App() {
               (item) => (
                 <article
                   key={item.id}
-                  className={`message-row ${
-                    item.role
-                  }`}
+                  className={`message-row ${item.role
+                    }`}
                 >
+                  {item.role === "assistant" && (
+                    <img
+                      className="message-avatar"
+                      src="/assets/chat_avatar.png"
+                      alt="Avatar do DeepBruce"
+                    />
+                  )}
+
                   <span className="message-author">
                     {item.role === "user"
                       ? "Você"
@@ -584,17 +762,19 @@ function App() {
                   </span>
 
                   <div
-                    className={`message-bubble ${
-                      item.role
-                    } ${
-                      item.route
+                    className={`message-bubble ${item.role
+                      } ${item.route
                         ? `route-${item.route}`
                         : ""
-                    }`}
+                      }`}
                   >
                     {item.content && (
-                      <div className="message-text">
-                        {item.content}
+                      <div className="message-text markdown-body">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                        >
+                          {item.content}
+                        </ReactMarkdown>
                       </div>
                     )}
 
@@ -604,156 +784,171 @@ function App() {
                       ?.options
                       ?.length
                       > 0 && (
-                      <div className="clarification-options">
-                        {item
-                          .clarification
-                          .options
-                          .map(
-                            (
-                              option
-                            ) => (
-                              <button
-                                key={
-                                  option.query
-                                }
-                                type="button"
-                                className="clarification-option"
-                                disabled={
-                                  loading
-                                }
-                                onClick={() =>
-                                  handleClarification(
+                        <div className="clarification-options">
+                          {item
+                            .clarification
+                            .options
+                            .map(
+                              (
+                                option
+                              ) => (
+                                <button
+                                  key={
                                     option.query
-                                  )
-                                }
-                              >
-                                ✦{" "}
-                                {
-                                  option.label
-                                }
-                              </button>
-                            )
-                          )}
-                      </div>
-                    )}
+                                  }
+                                  type="button"
+                                  className="clarification-option"
+                                  disabled={
+                                    loading
+                                  }
+                                  onClick={() =>
+                                    handleClarification(
+                                      option.query
+                                    )
+                                  }
+                                >
+                                  ✦{" "}
+                                  {
+                                    option.label
+                                  }
+                                </button>
+                              )
+                            )}
+                        </div>
+                      )}
 
 
                     {item.sources
                       ?.length
                       > 0 && (
-                      <div className="sources">
-                        <span className="sources-title">
-                          ✦ SOURCES
-                        </span>
+                        <div className="sources">
+                          <span className="sources-title">
+                            ✦ SOURCES
+                          </span>
 
-                        <div className="sources-grid">
-                          {item.sources.map(
-                            (
-                              source,
-                              index
-                            ) => (
-                              <a
-                                key={
-                                  source.url
-                                  || index
-                                }
-                                className="source-card"
-                                href={
-                                  source.url
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <strong>
-                                  {
-                                    source.title
+                          <div className="sources-grid">
+                            {item.sources.map(
+                              (
+                                source,
+                                index
+                              ) => (
+                                <a
+                                  key={
+                                    source.url
+                                    || index
                                   }
-                                </strong>
+                                  className="source-card"
+                                  href={
+                                    source.url
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <strong>
+                                    {
+                                      source.title
+                                    }
+                                  </strong>
 
-                                <span>
-                                  {
-                                    source.source
-                                    || "Wikipedia"
-                                  }
-                                </span>
-                              </a>
-                            )
-                          )}
+                                  <span>
+                                    {
+                                      source.source
+                                      || "Wikipedia"
+                                    }
+                                  </span>
+                                </a>
+                              )
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </article>
               )
             )}
 
 
-            {loading && (
-              <div className="thinking">
-                <span>
-                  ✦
-                </span>
+           {loading && (
+  <div className="thinking">
+    <span>
+      ✦
+    </span>
 
-                DeepBruce está
-                processando...
-              </div>
-            )}
+    DeepBruce está
+    processando...
+  </div>
+)}
+
+<div ref={messagesEndRef} />
+
+</div> 
+
+        {error && (
+          <div className="error-message">
+            {error}
           </div>
+        )}
 
 
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
+        <form
+          className="composer"
+          onSubmit={
+            handleSubmit
+          }
+        >
+          <span className="composer-symbol">
+            <button
+              type="button"
+              className={`voice-button ${listening
+                  ? "listening"
+                  : ""
+                }`}
+              onClick={startListening}
+              disabled={loading}
+            >
+              {listening
+                ? "◉"
+                : "🎙"}
+            </button>
+            ✦
+          </span>
 
+          <input
+            type="text"
+            value={message}
+            disabled={
+              loading
+            }
+            placeholder="Ask DeepBruce anything..."
+            onChange={(event) =>
+              setMessage(
+                event.target.value
+              )
+            }
+          />
 
-          <form
-            className="composer"
-            onSubmit={
-              handleSubmit
+          <button
+            type="submit"
+            disabled={
+              loading
+              || !message.trim()
             }
           >
-            <span className="composer-symbol">
-              ✦
+            Ask
+            <span>
+              →
             </span>
-
-            <input
-              type="text"
-              value={message}
-              disabled={
-                loading
-              }
-              placeholder="Ask DeepBruce anything..."
-              onChange={(event) =>
-                setMessage(
-                  event.target.value
-                )
-              }
-            />
-
-            <button
-              type="submit"
-              disabled={
-                loading
-                || !message.trim()
-              }
-            >
-              Ask
-              <span>
-                →
-              </span>
-            </button>
-          </form>
-        </div>
-      </section>
+          </button>
+        </form>
+      </div>
+      </section >
 
 
-      {/* ARQUITETURA */}
-      <section
-        className="architecture"
-        id="architecture"
-      >
+    {/* ARQUITETURA */ }
+    <section
+      className="architecture"
+      id="architecture"
+    >
         <span className="section-kicker">
           UNDER THE SPELL
         </span>
@@ -830,32 +1025,33 @@ function App() {
             </p>
           </div>
         </div>
-      </section>
+
+        <img
+          className="tools-art"
+          src="/assets/ferramentas_icones.png"
+          alt="Tecnologias usadas pelo DeepBruce"
+        />
+      </section >
 
 
-      <footer className="footer">
-        <div className="brand">
-          <span className="brand-star">
-            ✦
-          </span>
+    <footer className="footer">
+      <div className="brand">
+        <img
+          className="brand-logo"
+          src="/assets/Logotipo.png"
+          alt="DeepBruce AI"
+        />
+      </div>
 
-          <span>
-            DeepBruce
-            <strong>
-              AI
-            </strong>
-          </span>
-        </div>
+      <span>
+        Knowledge beyond search.
+      </span>
 
-        <span>
-          Knowledge beyond search.
-        </span>
-
-        <span>
-          Built with curiosity.
-        </span>
-      </footer>
-    </div>
+      <span>
+        Built with curiosity.
+      </span>
+    </footer>
+    </div >
   );
 }
 
